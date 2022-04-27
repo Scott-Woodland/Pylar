@@ -3085,7 +3085,7 @@ vec4 frag(vec3 pos, vec2 uv, vec4 color, sampler2D tex) {
     pos(width() * 0.5 + 500, height() * 0.9 - 165),
     area({ width: 200, height: 10 }),
     solid(),
-    color(60, 60, 60),
+    color(60, 60, 255),
     "ground"
   ]);
   add([
@@ -3094,7 +3094,7 @@ vec4 frag(vec3 pos, vec2 uv, vec4 color, sampler2D tex) {
     pos(width() * 0.5 - 700, height() * 0.6 - 100),
     area({ width: 300, height: 40 }),
     solid(),
-    color(60, 60, 60),
+    color(60, 255, 60),
     "ground"
   ]);
   add([
@@ -3103,7 +3103,7 @@ vec4 frag(vec3 pos, vec2 uv, vec4 color, sampler2D tex) {
     pos(width() * 0.5, height() * 0.5),
     area({ width: 100, height: 40 }),
     solid(),
-    color(60, 60, 60),
+    color(255, 60, 60),
     "ground"
   ]);
   add([

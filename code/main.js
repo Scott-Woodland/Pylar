@@ -6,7 +6,7 @@ kaboom({
 const baseSpeed = 150;
 let speed = baseSpeed;
 let camSpeed = 150;
-const acc = 4;
+const acc = 4; 
 const maxSpeed = 400;
 let timer = 0;
 let isAccel = false;
@@ -49,7 +49,7 @@ let bean = add([
     }),
     body(),
     area( {width: 56, height: 100 }),
-    pos(width() * 0.5, height() * 0.75),
+    pos(scale() * 0.5, scale() * 0.75),
     origin('center'),
     scale(0.8),
     rotate(0),
@@ -182,7 +182,7 @@ add ([
     pos (width() * 0.5 + 500, height() * 0.9 - 165),
     area({ width: 200, height: 10 }),
     solid(),
-    color(60,60,60),
+    color(60,60,255),
     "ground"
 ])
 add ([
@@ -191,7 +191,7 @@ add ([
     pos (width() * 0.5 - 700, height() * 0.6 - 100),
     area({ width: 300, height: 40 }),
     solid(),
-    color(60,60,60),
+    color(60,255,60),
     "ground"
 ])
 add ([
@@ -200,7 +200,7 @@ add ([
     pos (width() * 0.5, height() * 0.5),
     area({ width: 100, height: 40 }),
     solid(),
-    color(60,60,60),
+    color(255,60,60),
     "ground"
 ])
 add ([
