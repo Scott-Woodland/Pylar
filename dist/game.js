@@ -2915,19 +2915,12 @@ vec4 frag(vec3 pos, vec2 uv, vec4 color, sampler2D tex) {
   // code/main.js
   no({
     scale: 1,
+    width: 1920,
+    height: 1080,
+    stretch: true,
+    letterbox: true,
     background: [235, 100, 100]
   });
-  var baseSpeed = 150;
-  var speed = baseSpeed;
-  var camSpeed = 150;
-  var acc = 4;
-  var maxSpeed = 400;
-  var isAccel = false;
-  var moveX = 0;
-  var friction = 16;
-  var camFriction = 30;
-  var startOffset = height() * 0.3;
-  var jumps = 0;
   loadSprite("bean", "sprites/PylarSpriteSheet.png", {
     "width": 2048,
     "height": 2048,
@@ -2954,166 +2947,224 @@ vec4 frag(vec3 pos, vec2 uv, vec4 color, sampler2D tex) {
       }
     }
   });
-  var bean = add([
-    origin("bottom"),
-    sprite("bean", {
-      anim: "idle"
-    }),
-    body(),
-    area({ width: 56, height: 100 }),
-    pos(width() * 0.5, height() * 0.75),
-    origin("center"),
-    scale(0.8),
-    rotate(0),
-    "bean"
-  ]);
-  var debugText = add([
-    origin("center"),
-    text(isAccel),
-    pos(width() * 0.5, height() * 0.2),
-    { value: 0 }
-  ]);
-  var beanPos = vec2(bean.pos.x, bean.pos.y - startOffset);
-  onUpdate(() => {
-    beanPos = vec2(bean.pos.x, bean.pos.y - startOffset);
-    bean.move(moveX * speed, 0);
-    camPos(camPos().x + moveX * camSpeed * dt(), height() * 0.75 - startOffset);
-    ;
-    if (isAccel == true) {
-      if (speed < maxSpeed) {
-        speed = speed + acc;
-      }
-      if (camSpeed < maxSpeed) {
-        camSpeed = speed + 40;
-      }
-    } else {
-      if (speed > 0) {
-        speed = speed - friction;
+  scene("start", () => {
+    let menuText = add([
+      origin("center"),
+      text("Press F to start"),
+      pos(width() * 0.5, height() * 0.5),
+      { value: 0 }
+    ]);
+    onKeyPress("f", (c) => {
+      fullscreen(!isFullscreen());
+      go("main");
+    });
+  });
+  go("start");
+  scene("main", () => {
+    let baseSpeed = 150;
+    let speed = baseSpeed;
+    let camSpeed = 150;
+    let acc = 10;
+    let camAcc = 40;
+    let maxSpeed = 500;
+    let timer = 0;
+    let isAccel = false;
+    let moveX = 0;
+    let moveY = 0;
+    let friction = 16;
+    let camFriction = 30;
+    const startOffset = height() * 0.3;
+    let jumps = 0;
+    isFullscreen(true);
+    let bean = add([
+      origin("bottom"),
+      sprite("bean", {
+        anim: "idle"
+      }),
+      body(),
+      area({ width: 56, height: 100 }),
+      pos(width() * 0.5, height() * 0.75),
+      origin("center"),
+      scale(0.8),
+      rotate(0),
+      "bean"
+    ]);
+    let debugText = add([
+      origin("center"),
+      text("", {
+        size: 24,
+        font: "apl386"
+      }),
+      { value: 0 }
+    ]);
+    let beanPos = vec2(bean.pos.x, bean.pos.y - startOffset);
+    let maxJumps = 2;
+    let godmode = false;
+    onUpdate(() => {
+      beanPos = vec2(bean.pos.x, bean.pos.y - startOffset);
+      bean.move(moveX * speed, 0);
+      camPos(camPos().x + moveX * camSpeed * dt(), height() * 0.75 - startOffset);
+      ;
+      if (isAccel == true) {
+        if (speed < maxSpeed) {
+          speed = speed + acc;
+        }
+        if (camSpeed < maxSpeed) {
+          camSpeed = speed + camAcc;
+        }
       } else {
-        speed = 0;
-        if (bean.curAnim() == "run") {
+        if (speed > 0) {
+          speed = speed - friction;
+        } else {
+          speed = 0;
+          if (bean.curAnim() == "run") {
+            bean.play("idle");
+          }
+        }
+        if (camSpeed > 0) {
+          camSpeed = camSpeed - camFriction;
+        } else {
+          camSpeed = 0;
+          camPos(beanPos.x, camPos().y);
+        }
+      }
+      if (bean.curAnim() == null) {
+        if (isAccel) {
+          bean.play("run");
+        } else {
           bean.play("idle");
         }
       }
-      if (camSpeed > 0) {
-        camSpeed = camSpeed - camFriction;
+      if (beanPos.y > 7e3) {
+        console.log("Out Of Bounds");
+        bean.pos = vec2(width() * 0.5, height() * 0.75);
+        beanPos = vec2(bean.pos.x, bean.pos.y - startOffset);
+      }
+      if (bean.isGrounded()) {
+        jumps = 0;
+        bean.flipY(false);
+      }
+      if (godmode == true) {
+        debugText.text = "Oh Lord have mercy ._. " + (maxJumps - jumps) + "  " + speed;
       } else {
+        debugText.text = jumps + "  " + speed;
+      }
+      debugText.pos = vec2(bean.pos.x, bean.pos.y - 90);
+      readd(debugText);
+    });
+    onCollide("bean", "ground", (a2, b2, c) => {
+      let d;
+      if (c == null) {
+        d = vec2(0, 0);
+        console.log("saved your ass");
+      } else {
+        d = vec2(c.displacement.x, c.displacement.y);
+      }
+      if (d.y == 0) {
         camSpeed = 0;
-        camPos(beanPos.x, camPos().y);
       }
-    }
-    if (bean.curAnim() == null) {
-      if (isAccel) {
-        bean.play("run");
+    });
+    bean.onCollide(() => {
+      isAccel = false;
+    });
+    onKeyDown("a", () => {
+      moveX = -1;
+      bean.flipX(true);
+    });
+    onKeyPress("a", () => {
+      speed = baseSpeed;
+      isAccel = true;
+      bean.play("run");
+    });
+    onKeyRelease("a", () => {
+      isAccel = false;
+    });
+    onKeyDown("d", () => {
+      moveX = 1;
+      bean.flipX(false);
+    });
+    onKeyPress("d", () => {
+      speed = baseSpeed;
+      isAccel = true;
+      bean.play("run");
+    });
+    onKeyRelease("d", () => {
+      isAccel = false;
+    });
+    onKeyPress("space", () => {
+      bean.stop();
+      bean.play("punch");
+    });
+    onKeyPress("p", () => {
+      maxJumps = 1e3;
+      baseSpeed = 1e3;
+      camSpeed = 1e3;
+      maxSpeed = 3e3;
+      acc = 300;
+      camAcc = 1200;
+      friction = 100;
+      godmode = true;
+      camFriction = 180;
+    });
+    onKeyPress("w", () => {
+      if (bean.isGrounded() || jumps < maxJumps) {
+        bean.jump(700);
+        jumps++;
+      }
+      if (jumps % 2 == 0) {
+        bean.flipY(true);
       } else {
-        bean.play("idle");
+        bean.flipY(false);
       }
-    }
-    if (beanPos.y > 7e3) {
-      console.log("Out Of Bounds");
-      bean.pos = vec2(width() * 0.5, height() * 0.75);
-      beanPos = vec2(bean.pos.x, bean.pos.y - startOffset);
-    }
-    if (bean.isGrounded()) {
-      jumps = 0;
-    }
-    debugText.text = "  " + jumps + "  " + isAccel;
-    readd(debugText);
+    });
+    onKeyPress("f", (c) => {
+      fullscreen(!isFullscreen());
+    });
+    add([
+      origin("top"),
+      rect(5e4, 100),
+      pos(width() * 0.5, height() * 0.9),
+      area({ width: 5e4, height: 100 }),
+      solid(),
+      color(60, 60, 60),
+      "ground"
+    ]);
+    add([
+      origin("top"),
+      rect(200, 30),
+      pos(width() * 0.5 + 500, height() * 0.9 - 185),
+      area({ width: 200, height: 30 }),
+      solid(),
+      color(60, 60, 60),
+      "ground"
+    ]);
+    add([
+      origin("top"),
+      rect(300, 30),
+      pos(200, height() * 0.9 - 420),
+      area({ width: 300, height: 30 }),
+      solid(),
+      color(60, 60, 60),
+      "ground"
+    ]);
+    add([
+      origin("top"),
+      rect(100, 30),
+      pos(width() * 0.5, height() * 0.9 - 300),
+      area({ width: 100, height: 30 }),
+      solid(),
+      color(60, 60, 60),
+      "ground"
+    ]);
+    add([
+      origin("top"),
+      rect(400, 150),
+      pos(width() * 0.5 + 200, height() * 0.9 - 50),
+      area({ width: 400, height: 150 }),
+      solid(),
+      color(60, 60, 60),
+      "ground"
+    ]);
   });
-  onCollide("bean", "ground", (a2, b2, c) => {
-    let d;
-    if (c == null) {
-      d = vec2(0, 0);
-      console.log("saved your ass");
-    } else {
-      d = vec2(c.displacement.x, c.displacement.y);
-    }
-    console.log(d);
-    if (d.y == 0) {
-      camSpeed = 0;
-    }
-  });
-  bean.onCollide(() => {
-    isAccel = false;
-  });
-  onKeyDown("a", () => {
-    moveX = -1;
-    bean.flipX(true);
-  });
-  onKeyPress("a", () => {
-    speed = baseSpeed;
-    isAccel = true;
-    bean.play("run");
-  });
-  onKeyRelease("a", () => {
-    isAccel = false;
-  });
-  onKeyDown("d", () => {
-    moveX = 1;
-    bean.flipX(false);
-  });
-  onKeyPress("d", () => {
-    speed = baseSpeed;
-    isAccel = true;
-    bean.play("run");
-  });
-  onKeyRelease("d", () => {
-    isAccel = false;
-  });
-  onKeyPress("space", () => {
-    bean.stop();
-    bean.play("punch");
-  });
-  onKeyPress("w", () => {
-    if (bean.isGrounded() || jumps < 2) {
-      bean.jump(700);
-      jumps++;
-    }
-  });
-  add([
-    origin("top"),
-    rect(5e3, 100),
-    pos(width() * 0.5, height() * 0.9),
-    area({ width: 5e3, height: 100 }),
-    solid(),
-    color(60, 60, 60),
-    "ground"
-  ]);
-  add([
-    origin("top"),
-    rect(200, 10),
-    pos(width() * 0.5 + 500, height() * 0.9 - 165),
-    area({ width: 200, height: 10 }),
-    solid(),
-    color(60, 60, 255),
-    "ground"
-  ]);
-  add([
-    origin("top"),
-    rect(300, 40),
-    pos(width() * 0.5 - 700, height() * 0.6 - 100),
-    area({ width: 300, height: 40 }),
-    solid(),
-    color(60, 255, 60),
-    "ground"
-  ]);
-  add([
-    origin("top"),
-    rect(100, 40),
-    pos(width() * 0.5, height() * 0.5),
-    area({ width: 100, height: 40 }),
-    solid(),
-    color(255, 60, 60),
-    "ground"
-  ]);
-  add([
-    origin("top"),
-    rect(400, 150),
-    pos(width() * 0.5 + 200, height() * 0.9 - 50),
-    area({ width: 400, height: 150 }),
-    solid(),
-    color(60, 60, 60),
-    "ground"
-  ]);
 })();
 //# sourceMappingURL=game.js.map
