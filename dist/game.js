@@ -2937,13 +2937,31 @@ vec4 frag(vec3 pos, vec2 uv, vec4 color, sampler2D tex) {
         "from": 16,
         "to": 22,
         "speed": 10,
-        "loop": false
+        "loop": true
       },
       "run": {
         "from": 23,
         "to": 28,
         "speed": 10,
         "loop": true
+      },
+      "slide": {
+        "from": 17,
+        "to": 18,
+        "speed": 10,
+        "loop": true
+      },
+      "roll": {
+        "from": 16,
+        "to": 20,
+        "speed": 10,
+        "loop": false
+      },
+      "dash": {
+        "from": 25,
+        "to": 28,
+        "speed": 10,
+        "loop": false
       }
     }
   });
@@ -2971,10 +2989,16 @@ vec4 frag(vec3 pos, vec2 uv, vec4 color, sampler2D tex) {
     let isAccel = false;
     let moveX = 0;
     let moveY = 0;
-    let friction = 16;
-    let camFriction = 30;
+    let friction = 32;
+    let camFriction = 128;
     const startOffset = height() * 0.3;
     let jumps = 0;
+    let roll = false;
+    let run = false;
+    let dash = false;
+    let slam = false;
+    let hang = false;
+    let godmode = false;
     isFullscreen(true);
     let bean = add([
       origin("bottom"),
@@ -2989,6 +3013,84 @@ vec4 frag(vec3 pos, vec2 uv, vec4 color, sampler2D tex) {
       rotate(0),
       "bean"
     ]);
+    class beanaction {
+      constructor() {
+      }
+      run(active) {
+        if (active) {
+          bean.move(moveX * speed, 0);
+          if (speed < maxSpeed) {
+            speed = speed + acc;
+          }
+          if (camSpeed < maxSpeed) {
+            camSpeed = speed + camAcc;
+          }
+          if (roll == false && dash == false) {
+            if (speed > maxSpeed) {
+              speed = maxSpeed;
+            }
+            if (camSpeed > maxSpeed) {
+              camSpeed = maxSpeed;
+            }
+          }
+        }
+      }
+      roll(active) {
+        if (active) {
+          run = false;
+          bean.move(moveX * speed, 0);
+          speed = 250;
+          camSpeed = 250;
+          bean.scale.y = 0.5;
+        }
+      }
+      dash(active) {
+        if (active) {
+          run = false;
+          bean.move(moveX * speed, 0);
+          speed = 1e3;
+          camSpeed = 2e3;
+        }
+      }
+      slam(active) {
+        if (active) {
+          bean.move(0, 2e3);
+        }
+      }
+      hang(active) {
+        if (active) {
+          if (bean.isFalling()) {
+            gravity(100);
+            jumps = 1;
+          }
+        }
+      }
+      godmode(active) {
+        if (active) {
+          debugText.text = "Oh Lord have mercy ._. " + (maxJumps - jumps) + "  " + speed;
+          maxJumps = 1e3;
+          baseSpeed = 1e3;
+          camSpeed = 1e3;
+          maxSpeed = 3e3;
+          acc = 300;
+          camAcc = 1200;
+          friction = 500;
+          camFriction = 2e3;
+        }
+        if (!active) {
+          maxJumps = 2;
+          baseSpeed = 150;
+          camSpeed = 150;
+          maxSpeed = 500;
+          acc = 10;
+          camAcc = 40;
+          friction = 32;
+          camFriction = 128;
+        }
+      }
+    }
+    __name(beanaction, "beanaction");
+    ;
     let debugText = add([
       origin("center"),
       text("", {
@@ -2999,27 +3101,26 @@ vec4 frag(vec3 pos, vec2 uv, vec4 color, sampler2D tex) {
     ]);
     let beanPos = vec2(bean.pos.x, bean.pos.y - startOffset);
     let maxJumps = 2;
-    let godmode = false;
+    let beanAction = new beanaction(false);
     onUpdate(() => {
+      hang = false;
       beanPos = vec2(bean.pos.x, bean.pos.y - startOffset);
-      bean.move(moveX * speed, 0);
       camPos(camPos().x + moveX * camSpeed * dt(), height() * 0.75 - startOffset);
       ;
-      if (isAccel == true) {
-        if (speed < maxSpeed) {
-          speed = speed + acc;
-        }
-        if (camSpeed < maxSpeed) {
-          camSpeed = speed + camAcc;
-        }
+      gravity(1600);
+      if (run == true) {
+        beanAction.run(true);
       } else {
         if (speed > 0) {
           speed = speed - friction;
+          beanAction.run(true);
         } else {
           speed = 0;
-          if (bean.curAnim() == "run") {
+          isAccel = false;
+          if (bean.curAnim() == "slide") {
             bean.play("idle");
           }
+          beanAction.run(false);
         }
         if (camSpeed > 0) {
           camSpeed = camSpeed - camFriction;
@@ -3028,9 +3129,20 @@ vec4 frag(vec3 pos, vec2 uv, vec4 color, sampler2D tex) {
           camPos(beanPos.x, camPos().y);
         }
       }
+      beanAction.roll(roll);
+      beanAction.dash(dash);
+      beanAction.slam(slam);
+      beanAction.hang(hang);
       if (bean.curAnim() == null) {
         if (isAccel) {
-          bean.play("run");
+          if (bean.isGrounded()) {
+            if (run == true) {
+              bean.play("run");
+            } else {
+              bean.play("slide");
+            }
+          } else {
+          }
         } else {
           bean.play("idle");
         }
@@ -3042,79 +3154,131 @@ vec4 frag(vec3 pos, vec2 uv, vec4 color, sampler2D tex) {
       }
       if (bean.isGrounded()) {
         jumps = 0;
+        slam = false;
         bean.flipY(false);
       }
-      if (godmode == true) {
-        debugText.text = "Oh Lord have mercy ._. " + (maxJumps - jumps) + "  " + speed;
-      } else {
-        debugText.text = jumps + "  " + speed;
-      }
+      debugText.text = jumps + "  " + speed;
       debugText.pos = vec2(bean.pos.x, bean.pos.y - 90);
       readd(debugText);
+    });
+    onKeyPress("space", () => {
+      if (bean.isGrounded()) {
+        roll = true;
+        bean.play("roll", {
+          onEnd: () => {
+            bean.scale.y = 0.8;
+            roll = false;
+          }
+        });
+      }
     });
     onCollide("bean", "ground", (a2, b2, c) => {
       let d;
       if (c == null) {
         d = vec2(0, 0);
-        console.log("saved your ass");
       } else {
         d = vec2(c.displacement.x, c.displacement.y);
       }
       if (d.y == 0) {
+        speed = 0;
         camSpeed = 0;
+        run = false;
+        hang = true;
+        dash = false;
+        roll = false;
       }
-    });
-    bean.onCollide(() => {
-      isAccel = false;
+      if (d.x == -0) {
+        bean.jumpForce = -640;
+      }
+      if (d.x == 0) {
+        bean.jumpForce = 640;
+      }
     });
     onKeyDown("a", () => {
-      moveX = -1;
-      bean.flipX(true);
+      if (roll == false) {
+        moveX = -1;
+        bean.flipX(true);
+        isAccel = true;
+        if (roll == false && dash == false) {
+          run = true;
+        }
+      }
     });
     onKeyPress("a", () => {
-      speed = baseSpeed;
-      isAccel = true;
-      bean.play("run");
+      if (roll == false) {
+        speed = baseSpeed;
+        bean.play("run");
+      }
     });
     onKeyRelease("a", () => {
-      isAccel = false;
+      if (roll == false) {
+        run = false;
+        bean.play("slide");
+      }
+    });
+    onKeyPress("s", () => {
+      if (roll == false) {
+        if (!bean.isGrounded()) {
+          speed = 0;
+          camSpeed = 0;
+          setTimeout(() => {
+            slam = true;
+          }, "100");
+        }
+      }
     });
     onKeyDown("d", () => {
-      moveX = 1;
-      bean.flipX(false);
+      if (roll == false) {
+        moveX = 1;
+        bean.flipX(false);
+        isAccel = true;
+        if (roll == false && dash == false) {
+          run = true;
+        }
+      }
     });
     onKeyPress("d", () => {
-      speed = baseSpeed;
-      isAccel = true;
-      bean.play("run");
+      if (roll == false) {
+        speed = baseSpeed;
+        isAccel = true;
+        bean.play("run");
+      }
     });
     onKeyRelease("d", () => {
-      isAccel = false;
+      if (roll == false) {
+        run = false;
+        bean.play("slide");
+      }
     });
-    onKeyPress("space", () => {
-      bean.stop();
-      bean.play("punch");
+    onKeyPress("shift", () => {
+      if (roll == false) {
+        dash = true;
+        setTimeout(() => {
+          dash = false;
+        }, "200");
+        bean.stop();
+        bean.play("dash");
+      }
     });
     onKeyPress("p", () => {
-      maxJumps = 1e3;
-      baseSpeed = 1e3;
-      camSpeed = 1e3;
-      maxSpeed = 3e3;
-      acc = 300;
-      camAcc = 1200;
-      friction = 100;
-      godmode = true;
-      camFriction = 180;
+      if (godmode == false) {
+        beanAction.godmode(true);
+        godmode = true;
+      } else {
+        beanAction.godmode(false);
+        godmode = false;
+      }
     });
     onKeyPress("w", () => {
-      if (bean.isGrounded() || jumps < maxJumps) {
-        bean.jump(700);
-        jumps++;
-      }
-      if (jumps % 2 == 0) {
-        bean.flipY(true);
-      } else {
-        bean.flipY(false);
+      if (roll == false) {
+        if (bean.isGrounded() || jumps < maxJumps) {
+          bean.jump(700);
+          jumps++;
+        }
+        if (jumps % 2 == 0) {
+        } else {
+          bean.flipY(false);
+        }
       }
     });
     onKeyPress("f", (c) => {
@@ -3161,6 +3325,15 @@ vec4 frag(vec3 pos, vec2 uv, vec4 color, sampler2D tex) {
       rect(400, 150),
       pos(width() * 0.5 + 200, height() * 0.9 - 50),
       area({ width: 400, height: 150 }),
+      solid(),
+      color(60, 60, 60),
+      "ground"
+    ]);
+    let wall1 = add([
+      origin("top"),
+      rect(200, 400),
+      pos(width() * 0.5 + 1e3, height() * 0.9 - 465),
+      area({ width: 200, height: 400 }),
       solid(),
       color(60, 60, 60),
       "ground"
