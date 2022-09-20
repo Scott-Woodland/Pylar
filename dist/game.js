@@ -2952,8 +2952,8 @@ vec4 frag(vec3 pos, vec2 uv, vec4 color, sampler2D tex) {
         "loop": false
       },
       "roll": {
-        "from": 16,
-        "to": 20,
+        "from": 66,
+        "to": 69,
         "speed": 10,
         "loop": false
       },
@@ -2976,8 +2976,8 @@ vec4 frag(vec3 pos, vec2 uv, vec4 color, sampler2D tex) {
         "loop": false
       },
       "jump": {
-        "from": 25,
-        "to": 28,
+        "from": 54,
+        "to": 57,
         "speed": 10,
         "loop": false
       },
@@ -3033,12 +3033,16 @@ vec4 frag(vec3 pos, vec2 uv, vec4 color, sampler2D tex) {
   });
   go("start");
   scene("main", () => {
+    let health = 5;
     let baseSpeed = 150;
     let speed = baseSpeed;
-    let camSpeed = 150;
-    let acc = 10;
-    let camAcc = 40;
-    let maxSpeed = 500;
+    let camSpeed = 0;
+    const accBase = 10;
+    let acc = accBase;
+    const camAccBase = 40;
+    let camAcc = camAccBase;
+    const maxSpeedBase = 500;
+    let maxSpeed = maxSpeedBase;
     let timer = 0;
     let isAccel = false;
     let moveX = 1;
@@ -3046,7 +3050,7 @@ vec4 frag(vec3 pos, vec2 uv, vec4 color, sampler2D tex) {
     let friction = 32;
     let dashCharge = 0.6;
     let dashChargeTimer = dashCharge;
-    let camFriction = 128;
+    let camFriction = friction * (camAcc / acc);
     const startOffset = height() * 0.3;
     let jumps = 0;
     let roll = false;
@@ -3084,10 +3088,10 @@ vec4 frag(vec3 pos, vec2 uv, vec4 color, sampler2D tex) {
           }
           if (roll == false && dash == false) {
             if (speed > maxSpeed) {
-              speed = maxSpeed;
+              speed = speed - friction;
             }
             if (camSpeed > maxSpeed) {
-              camSpeed = maxSpeed;
+              camSpeed = camSpeed - friction;
             }
           }
         }
@@ -3097,7 +3101,7 @@ vec4 frag(vec3 pos, vec2 uv, vec4 color, sampler2D tex) {
           run = false;
           bean.move(moveX * speed, 0);
           speed = 250;
-          camSpeed = 250;
+          camSpeed = 400;
           bean.scale.y = 0.5;
         } else {
           bean.scale.y = 0.8;
@@ -3108,7 +3112,7 @@ vec4 frag(vec3 pos, vec2 uv, vec4 color, sampler2D tex) {
           run = false;
           bean.move(moveX * speed, 0);
           speed = 1700 - 1500 * (dashChargeTimer.toFixed(2) / dashCharge);
-          camSpeed = 3200 - 3e3 * (dashChargeTimer.toFixed(2) / dashCharge);
+          camSpeed = 3400 - 3e3 * (dashChargeTimer.toFixed(2) / dashCharge);
         }
       }
       slam(active) {
@@ -3121,29 +3125,6 @@ vec4 frag(vec3 pos, vec2 uv, vec4 color, sampler2D tex) {
         if (active) {
           gravity(500);
           jumps = 1;
-        }
-      }
-      godmode(active) {
-        if (active) {
-          debugText.text = "Oh Lord have mercy ._. " + (maxJumps - jumps) + "  " + speed;
-          maxJumps = 1e3;
-          baseSpeed = 1e3;
-          camSpeed = 1e3;
-          maxSpeed = 3e3;
-          acc = 300;
-          camAcc = 1200;
-          friction = 500;
-          camFriction = 2e3;
-        }
-        if (!active) {
-          maxJumps = 2;
-          baseSpeed = 150;
-          camSpeed = 150;
-          maxSpeed = 500;
-          acc = 10;
-          camAcc = 40;
-          friction = 32;
-          camFriction = 128;
         }
       }
     }
@@ -3162,6 +3143,7 @@ vec4 frag(vec3 pos, vec2 uv, vec4 color, sampler2D tex) {
     let beanAction = new beanaction(false);
     onUpdate(() => {
       console.log(bean.curAnim());
+      camFriction = friction * (camAcc / acc);
       hang = false;
       gravity(1600);
       beanPos = vec2(bean.pos.x, bean.pos.y - startOffset);
@@ -3230,7 +3212,7 @@ vec4 frag(vec3 pos, vec2 uv, vec4 color, sampler2D tex) {
         bean.pos = vec2(width() * 0.5, height() * 0.75);
         beanPos = vec2(bean.pos.x, bean.pos.y - startOffset);
       }
-      debugText.text = jumps + "  " + speed + " " + bean.curAnim() + " " + dashChargeTimer.toFixed(2);
+      debugText.text = jumps + " " + camSpeed + " " + speed + " " + bean.curAnim() + " " + dashChargeTimer.toFixed(2);
       debugText.pos = vec2(bean.pos.x, bean.pos.y - 90);
       readd(debugText);
     });
@@ -3242,7 +3224,7 @@ vec4 frag(vec3 pos, vec2 uv, vec4 color, sampler2D tex) {
         d = vec2(c.displacement.x, c.displacement.y);
       }
       if (d.y == 0) {
-        if (bean.isFalling()) {
+        if (bean.isFalling() && roll == false) {
           hang = true;
           if (bean.curAnim() != "hang") {
             bean.play("hang");
@@ -3259,16 +3241,18 @@ vec4 frag(vec3 pos, vec2 uv, vec4 color, sampler2D tex) {
       }
       if (d.y == 0) {
         speed = 0;
+        acc = 1;
+        camAcc = 0;
         camSpeed = 0;
         run = false;
+        dashChargeTimer = dashCharge;
         dash = false;
-        roll = false;
       }
       if (d.x == -0) {
-        bean.jumpForce = -640;
       }
       if (d.x == 0) {
-        bean.jumpForce = 640;
+        acc = accBase;
+        camAcc = camAccBase;
       }
     });
     onKeyDown("a", () => {
@@ -3284,6 +3268,8 @@ vec4 frag(vec3 pos, vec2 uv, vec4 color, sampler2D tex) {
     onKeyPress("a", () => {
       if (roll == false && dash == false) {
         speed = baseSpeed;
+        acc = accBase;
+        camAcc = camAccBase;
         if (bean.isGrounded()) {
           bean.play("run");
         }
@@ -3321,6 +3307,8 @@ vec4 frag(vec3 pos, vec2 uv, vec4 color, sampler2D tex) {
     onKeyPress("d", () => {
       if (roll == false && dash == false) {
         speed = baseSpeed;
+        acc = accBase;
+        camAcc = camAccBase;
         isAccel = true;
         if (bean.isGrounded()) {
           bean.play("run");
@@ -3357,7 +3345,9 @@ vec4 frag(vec3 pos, vec2 uv, vec4 color, sampler2D tex) {
         roll = true;
         bean.play("roll", {
           onEnd: () => {
+            camSpeed = speed;
             roll = false;
+            maxSpeed = maxSpeedBase;
             dash = false;
             dashChargeTimer = dashCharge;
           }
@@ -3366,6 +3356,7 @@ vec4 frag(vec3 pos, vec2 uv, vec4 color, sampler2D tex) {
     });
     onKeyRelease("shift", () => {
       if (roll == false) {
+        maxSpeed = maxSpeedBase;
         charge = false;
         dash = true;
         bean.stop();
@@ -3378,16 +3369,19 @@ vec4 frag(vec3 pos, vec2 uv, vec4 color, sampler2D tex) {
       }
     });
     onKeyPress("shift", () => {
-      charge = true;
-      bean.play("charge", {
-        onEnd: () => {
-          charge = false;
-          bean.play("chargeEnd");
-        }
-      });
+      if (roll == false) {
+        charge = true;
+        bean.play("charge", {
+          onEnd: () => {
+            charge = false;
+            bean.play("chargeEnd");
+          }
+        });
+      }
     });
     onKeyDown("shift", () => {
       if (roll == false) {
+        maxSpeed = 150;
         if (dashChargeTimer > 0) {
           dashChargeTimer = dashChargeTimer - dt();
           if (charge == false && bean.curAnim() != "chargeEnd") {
@@ -3460,9 +3454,9 @@ vec4 frag(vec3 pos, vec2 uv, vec4 color, sampler2D tex) {
     ]);
     add([
       origin("top"),
-      rect(100, 800),
+      rect(40, 800),
       pos(width() * 0.5 + 1e3, height() * 0.9 - 865),
-      area({ width: 100, height: 800 }),
+      area({ width: 40, height: 800 }),
       solid(),
       color(60, 60, 60),
       "ground",
@@ -3470,9 +3464,9 @@ vec4 frag(vec3 pos, vec2 uv, vec4 color, sampler2D tex) {
     ]);
     add([
       origin("top"),
-      rect(100, 800),
+      rect(40, 800),
       pos(width() * 0.5 + 1300, height() * 0.9 - 865),
-      area({ width: 100, height: 800 }),
+      area({ width: 40, height: 800 }),
       solid(),
       color(60, 60, 60),
       "ground",
