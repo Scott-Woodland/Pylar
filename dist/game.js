@@ -121,11 +121,11 @@
   }
   __name(Xt, "Xt");
   a(Xt, "rad2deg");
-  function z(i, t, l) {
-    return t > l ? z(i, l, t) : Math.min(Math.max(i, t), l);
+  function z2(i, t, l) {
+    return t > l ? z2(i, l, t) : Math.min(Math.max(i, t), l);
   }
-  __name(z, "z");
-  a(z, "clamp");
+  __name(z2, "z");
+  a(z2, "clamp");
   function Ve(i, t, l) {
     return i + (t - i) * l;
   }
@@ -137,7 +137,7 @@
   __name(dt2, "dt");
   a(dt2, "map");
   function dr(i, t, l, w, U) {
-    return z(dt2(i, t, l, w, U), w, U);
+    return z2(dt2(i, t, l, w, U), w, U);
   }
   __name(dr, "dr");
   a(dr, "mapc");
@@ -233,7 +233,7 @@
       b(this, "r", 255);
       b(this, "g", 255);
       b(this, "b", 255);
-      this.r = z(t, 0, 255), this.g = z(l, 0, 255), this.b = z(w, 0, 255);
+      this.r = z2(t, 0, 255), this.g = z2(l, 0, 255), this.b = z2(w, 0, 255);
     }
     static fromArray(t) {
       return new ue(t[0], t[1], t[2]);
@@ -1072,7 +1072,7 @@ vec4 frag(vec3 pos, vec2 uv, vec4 color, sampler2D tex) {
     __name(_r, "_r");
     a(_r, "loadBean");
     function Br(e) {
-      return e !== void 0 && (w.masterNode.gain.value = z(e, Or, Ir)), w.masterNode.gain.value;
+      return e !== void 0 && (w.masterNode.gain.value = z2(e, Or, Ir)), w.masterNode.gain.value;
     }
     __name(Br, "Br");
     a(Br, "volume");
@@ -1115,11 +1115,11 @@ vec4 frag(vec3 pos, vec2 uv, vec4 color, sampler2D tex) {
       }, stopped() {
         return B("stopped()", "isStopped()"), this.isStopped();
       }, speed(y) {
-        return y !== void 0 && (c.playbackRate.value = z(y, ds, fs)), c.playbackRate.value;
+        return y !== void 0 && (c.playbackRate.value = z2(y, ds, fs)), c.playbackRate.value;
       }, detune(y) {
-        return c.detune ? (y !== void 0 && (c.detune.value = z(y, ps, ms)), c.detune.value) : 0;
+        return c.detune ? (y !== void 0 && (c.detune.value = z2(y, ps, ms)), c.detune.value) : 0;
       }, volume(y) {
-        return y !== void 0 && (s.gain.value = z(y, Or, Ir)), s.gain.value;
+        return y !== void 0 && (s.gain.value = z2(y, Or, Ir)), s.gain.value;
       }, loop() {
         c.loop = true;
       }, unloop() {
@@ -2024,9 +2024,9 @@ vec4 frag(vec3 pos, vec2 uv, vec4 color, sampler2D tex) {
       }), H("f8", () => {
         C.paused = !C.paused;
       }), H("f7", () => {
-        C.timeScale = ge(z(C.timeScale - 0.2, 0, 2), 1);
+        C.timeScale = ge(z2(C.timeScale - 0.2, 0, 2), 1);
       }), H("f9", () => {
-        C.timeScale = ge(z(C.timeScale + 0.2, 0, 2), 1);
+        C.timeScale = ge(z2(C.timeScale + 0.2, 0, 2), 1);
       }), H("f10", () => {
         C.stepFrame();
       }), H("f5", () => {
@@ -2913,6 +2913,20 @@ vec4 frag(vec3 pos, vec2 uv, vec4 color, sampler2D tex) {
   }, "default");
 
   // code/main.js
+  window.onload = function() {
+    window.document.body.onkeydown = function() {
+      if (event.ctrlKey) {
+        event.stopPropagation();
+        event.preventDefault();
+        try {
+          event.keyCode = 0;
+        } catch (event2) {
+        }
+        return false;
+      }
+      return true;
+    };
+  };
   no({
     scale: 1,
     width: 1920,
@@ -2933,11 +2947,17 @@ vec4 frag(vec3 pos, vec2 uv, vec4 color, sampler2D tex) {
         "speed": 10,
         "loop": false
       },
-      "punch": {
+      "punch1": {
         "from": 16,
+        "to": 18,
+        "speed": 10,
+        "loop": false
+      },
+      "punch2": {
+        "from": 19,
         "to": 22,
         "speed": 10,
-        "loop": true
+        "loop": false
       },
       "run": {
         "from": 23,
@@ -3016,24 +3036,53 @@ vec4 frag(vec3 pos, vec2 uv, vec4 color, sampler2D tex) {
         "to": 65,
         "speed": 10,
         "loop": true
+      },
+      "uppercut": {
+        "from": 32,
+        "to": 33,
+        "speed": 10,
+        "loop": false
+      },
+      "kick": {
+        "from": 52,
+        "to": 53,
+        "speed": 10,
+        "loop": false
       }
     }
   });
   scene("start", () => {
     let menuText = add([
       origin("center"),
-      text("Press F to start"),
+      text("Some inputs only work in fullscreen - Press F", { width: 1500 }),
       pos(width() * 0.5, height() * 0.5),
       { value: 0 }
     ]);
     onKeyPress("f", (c) => {
-      fullscreen(!isFullscreen());
+      fullscreen(true);
       go("main");
     });
   });
   go("start");
   scene("main", () => {
-    let health = 5;
+    isFullscreen(true);
+    class Timer {
+      constructor(time, active) {
+        this.base = time;
+        this.time = time;
+        this.active = active;
+      }
+      update() {
+        if (this.active) {
+          this.time = this.time - dt();
+        }
+        if (this.time < 0) {
+          this.active = false;
+          this.time = this.base;
+        }
+      }
+    }
+    __name(Timer, "Timer");
     let baseSpeed = 150;
     let speed = baseSpeed;
     let camSpeed = 0;
@@ -3048,7 +3097,7 @@ vec4 frag(vec3 pos, vec2 uv, vec4 color, sampler2D tex) {
     let moveX = 1;
     let moveY = 0;
     let friction = 32;
-    let dashCharge = 0.6;
+    let dashCharge = 0.4;
     let dashChargeTimer = dashCharge;
     let camFriction = friction * (camAcc / acc);
     const startOffset = height() * 0.3;
@@ -3059,14 +3108,73 @@ vec4 frag(vec3 pos, vec2 uv, vec4 color, sampler2D tex) {
     let charge = false;
     let slam = false;
     let hang = false;
+    let kick = false;
+    let thrown = false;
+    let landed = true;
+    let throwX = 1;
+    let ammo = 1;
+    let kTime = 0;
+    let knifeSpeed = 1500;
+    let punchCount = 0;
     let godmode = false;
-    isFullscreen(true);
+    let rollUI = add([
+      z(10),
+      origin("center"),
+      rect(75, 5),
+      pos(width() * 0.5, height() * 0.97),
+      fixed(),
+      color(255, 255, 255)
+    ]);
+    let dashUI = add([
+      z(10),
+      origin("center"),
+      rect(450, 5),
+      pos(width() * 0.5, height() * 0.96),
+      fixed(),
+      color(113, 223, 240)
+    ]);
+    let slamUI = add([
+      z(10),
+      origin("bot"),
+      rect(60, 20),
+      pos(width() * 0.5, height() - 2),
+      fixed(),
+      color(255, 255, 255)
+    ]);
+    let healthUI = add([
+      z(10),
+      origin("left"),
+      text("HEALTH: 3", {
+        size: 30,
+        font: "apl386"
+      }),
+      pos(width() * 0.5 - 225, height() * 0.985),
+      fixed(),
+      color(255, 255, 255)
+    ]);
+    let debugText = add([
+      origin("center"),
+      text("", {
+        size: 24,
+        font: "apl386"
+      }),
+      { value: 0 }
+    ]);
+    let returnKUI = add([
+      z(10),
+      origin("left"),
+      rect(75, 5),
+      pos(width() * 0.5, height() * 0.9),
+      color(255, 255, 255)
+    ]);
     let bean = add([
+      z(5),
       origin("bottom"),
       sprite("bean", {
         anim: "idle"
       }),
       body(),
+      health(3),
       area({ width: 56, height: 110 }),
       pos(width() * 0.5, height() * 0.75),
       origin("center"),
@@ -3074,6 +3182,38 @@ vec4 frag(vec3 pos, vec2 uv, vec4 color, sampler2D tex) {
       rotate(0),
       "bean"
     ]);
+    let playerDamageBox = add([
+      origin("center"),
+      area({ width: 75, height: 65 }),
+      pos(width() * 0.5, height() * 0.75),
+      "melee"
+    ]);
+    let playerSlamBox = add([
+      origin("bot"),
+      area({ width: 250, height: 40 }),
+      pos(width() * 0.5, height() * 0.75),
+      "slam"
+    ]);
+    let playerKickBox = add([
+      origin("bot"),
+      area({ width: 100, height: 40 }),
+      pos(width() * 0.5, height() * 0.75),
+      "kick"
+    ]);
+    let knife = add([
+      z(4),
+      origin("center"),
+      area({ width: 30, height: 30 }),
+      pos(width() * 0.5, height() * 0.75),
+      rect(15, 15),
+      color(20, 20, 20),
+      "knife"
+    ]);
+    let rollTimer = new Timer(0.5, false);
+    let dashTimer = new Timer(3, false);
+    let slamTimer = new Timer(2, false);
+    let inv = new Timer(1.5, false);
+    let returnK = new Timer(3, false);
     class beanaction {
       constructor() {
       }
@@ -3086,7 +3226,7 @@ vec4 frag(vec3 pos, vec2 uv, vec4 color, sampler2D tex) {
           if (camSpeed < maxSpeed) {
             camSpeed = speed + camAcc;
           }
-          if (roll == false && dash == false) {
+          if (roll == false && dash == false && kick == false) {
             if (speed > maxSpeed) {
               speed = speed - friction;
             }
@@ -3124,30 +3264,96 @@ vec4 frag(vec3 pos, vec2 uv, vec4 color, sampler2D tex) {
       hang(active) {
         if (active) {
           gravity(500);
+          shake(0.5);
           jumps = 1;
+        }
+      }
+      kick(active) {
+        if (active) {
+          run = false;
+          bean.move(moveX * speed, 0);
+          bean.scale.y = 0.5;
+        } else {
+          bean.scale.y = 0.8;
+        }
+      }
+      throw(active) {
+        if (active) {
+          kTime = kTime + dt();
+          let x = Math.cos(throwAngle) * knifeSpeed - throwX * Math.pow(kTime, 5) * 500;
+          if (x * throwX < 0) {
+            x = 0;
+          }
+          knife.move(x, Math.sin(throwAngle) * knifeSpeed + 160 * 9.8 * kTime * kTime);
+        } else {
+          kTime = 0;
         }
       }
     }
     __name(beanaction, "beanaction");
     ;
-    let debugText = add([
-      origin("center"),
-      text("", {
-        size: 24,
-        font: "apl386"
-      }),
-      { value: 0 }
-    ]);
     let beanPos = vec2(bean.pos.x, bean.pos.y - startOffset);
     let maxJumps = 2;
     let beanAction = new beanaction(false);
+    function damage(target, damage2) {
+      if (inv.active == false) {
+        target.hurt(damage2);
+      }
+    }
+    __name(damage, "damage");
+    ;
+    function returnKnife() {
+      returnK.time = 3;
+      knife.scale = 1;
+      knife.height = 15;
+      knife.width = 15;
+      landed = false;
+      if (ammo == 0) {
+        ammo++;
+      }
+    }
+    __name(returnKnife, "returnKnife");
+    bean.onDeath(() => {
+      add([
+        z(10),
+        origin("center"),
+        text("YOU DIED :(", {
+          size: 100,
+          font: "apl386"
+        }),
+        pos(width() * 0.5, height() * 0.5),
+        fixed(),
+        color(255, 255, 255)
+      ]);
+      shake(50);
+      destroy(bean);
+      setTimeout(() => {
+        go("start");
+      }, 2e3);
+    });
+    bean.onHurt(() => {
+      inv.active = true;
+      shake(10);
+      healthUI.color = rgb(255, 0, 0);
+    });
     onUpdate(() => {
-      console.log(bean.curAnim());
+      aim = toWorld(mousePos());
+      rollTimer.update();
+      dashTimer.update();
+      slamTimer.update();
+      returnK.update();
+      inv.update();
       camFriction = friction * (camAcc / acc);
       hang = false;
       gravity(1600);
       beanPos = vec2(bean.pos.x, bean.pos.y - startOffset);
-      camPos(camPos().x + moveX * camSpeed * dt(), height() * 0.75 - startOffset);
+      camPos(camPos().x + moveX * camSpeed * dt(), bean.pos.y / 4 + 300);
+      playerDamageBox.pos = vec2(bean.pos.x + 50 * moveX, bean.pos.y);
+      playerSlamBox.pos = vec2(bean.pos.x, bean.pos.y + 55);
+      playerKickBox.pos = vec2(bean.pos.x + 40 * moveX, bean.pos.y + 50);
+      if (ammo == 1) {
+        knife.pos = vec2(bean.pos.x, bean.pos.y);
+      }
       ;
       if (run == true) {
         beanAction.run(true);
@@ -3176,6 +3382,8 @@ vec4 frag(vec3 pos, vec2 uv, vec4 color, sampler2D tex) {
       beanAction.dash(dash);
       beanAction.slam(slam);
       beanAction.hang(hang);
+      beanAction.hang(kick);
+      beanAction.throw(thrown);
       if (bean.curAnim() == null) {
         if (isAccel) {
           if (bean.isGrounded()) {
@@ -3202,8 +3410,10 @@ vec4 frag(vec3 pos, vec2 uv, vec4 color, sampler2D tex) {
           speed = 0;
           slam = false;
           bean.play("slamLand");
+          slamTimer.active = true;
+          shake(8);
         }
-        if (bean.curAnim() == "moveJump") {
+        if (bean.curAnim() == "moveJump" || bean.curAnim() == "uppercut") {
           bean.stop();
         }
       }
@@ -3212,25 +3422,35 @@ vec4 frag(vec3 pos, vec2 uv, vec4 color, sampler2D tex) {
         bean.pos = vec2(width() * 0.5, height() * 0.75);
         beanPos = vec2(bean.pos.x, bean.pos.y - startOffset);
       }
-      debugText.text = jumps + " " + camSpeed + " " + speed + " " + bean.curAnim() + " " + dashChargeTimer.toFixed(2);
-      debugText.pos = vec2(bean.pos.x, bean.pos.y - 90);
-      readd(debugText);
-    });
-    onCollide("bean", "wall", (a2, b2, c) => {
-      let d;
-      if (c == null) {
-        d = vec2(0, 0);
+      rollUI.width = 75 * rollTimer.time / 0.5;
+      if (dashTimer.active == true) {
+        dashUI.width = 450 * ((3 - dashTimer.time) / 3);
+        dashUI.color = rgb(240, 197, 5);
       } else {
-        d = vec2(c.displacement.x, c.displacement.y);
+        dashUI.width = 450;
+        dashUI.color = rgb(3, 222, 255);
       }
-      if (d.y == 0) {
-        if (bean.isFalling() && roll == false) {
-          hang = true;
-          if (bean.curAnim() != "hang") {
-            bean.play("hang");
-          }
-        }
+      if (slamTimer.active == true) {
+        slamUI.height = 20 * ((2 - slamTimer.time) / 2);
+        slamUI.color = rgb(255, 89, 43);
+      } else {
+        slamUI.height = 20;
+        slamUI.color = rgb(255, 255, 255);
       }
+      if (inv.active == false) {
+        healthUI.color = rgb(255, 255, 255);
+      }
+      if (returnK.active == true && landed == true) {
+        returnKUI.width = 75 * (returnK.time / 3);
+      } else {
+        returnKUI.width = 0;
+      }
+      debugText.text = bean.curAnim();
+      debugText.pos = vec2(bean.pos.x, bean.pos.y - 90);
+      returnKUI.pos = vec2(bean.pos.x - 37.5, bean.pos.y - 70);
+      healthUI.text = "HEALTH: " + bean.hp();
+      readd(debugText);
+      readd(healthUI);
     });
     onCollide("bean", "ground", (a2, b2, c) => {
       let d;
@@ -3245,8 +3465,11 @@ vec4 frag(vec3 pos, vec2 uv, vec4 color, sampler2D tex) {
         camAcc = 0;
         camSpeed = 0;
         run = false;
-        dashChargeTimer = dashCharge;
-        dash = false;
+        if (dash == true) {
+          dashChargeTimer = dashCharge;
+          dash = false;
+          shake(8);
+        }
       }
       if (d.x == -0) {
       }
@@ -3255,18 +3478,108 @@ vec4 frag(vec3 pos, vec2 uv, vec4 color, sampler2D tex) {
         camAcc = camAccBase;
       }
     });
+    onCollide("bean", "wall", (a2, b2, c) => {
+      let d;
+      if (c == null) {
+        d = vec2(0, 0);
+      } else {
+        d = vec2(c.displacement.x, c.displacement.y);
+      }
+      if (d.y == 0) {
+        if (bean.isFalling() && roll == false && kick == false) {
+          hang = true;
+          if (bean.curAnim() != "hang") {
+            bean.play("hang");
+          }
+        }
+      }
+    });
+    onCollide("bean", "dmg", (a2, b2, c) => {
+      damage(bean, 1);
+    });
+    onCollide("knife", "ground", (a2, b2, c) => {
+      knife.scale = 3;
+      knife.height = knife.height / 3;
+      knife.width = knife.width / 3;
+      thrown = false;
+      landed = true;
+      shake(2);
+    });
+    onCollide("knife", "bean", (a2, b2, c) => {
+      returnKnife();
+    });
+    onMousePress("left", () => {
+      if (roll == false && dash == false && kick == false) {
+        if (isKeyDown("control") && bean.isGrounded()) {
+          kick = true;
+          bean.play("kick", {
+            onEnd: () => {
+              kick = false;
+              dash = false;
+              dashChargeTimer = dashCharge;
+            }
+          });
+        } else {
+          punch = true;
+          if (punchCount == 0) {
+            bean.play("punch1", {
+              onEnd: () => {
+                punch = false;
+                dash = false;
+                dashChargeTimer = dashCharge;
+              }
+            });
+            punchCount++;
+          } else if (punchCount == 1) {
+            bean.play("punch2", {
+              onEnd: () => {
+                punch = false;
+                dash = false;
+                dashChargeTimer = dashCharge;
+              }
+            });
+            punchCount = 0;
+          }
+        }
+      }
+    });
+    onMousePress("right", () => {
+      if (roll == false && dash == false && kick == false && ammo > 0) {
+        thrown = true;
+        ammo--;
+        throwAngle = Math.atan2(aim.y - knife.pos.y, aim.x - knife.pos.x);
+        if (aim.x - knife.pos.x < 0) {
+          throwX = -1;
+        } else {
+          throwX = 1;
+        }
+      }
+      if (landed == true) {
+        returnK.active = true;
+      }
+      ;
+    });
+    onMouseDown("right", () => {
+      if (landed == true && returnK.time < 0.1) {
+        returnKnife();
+      }
+    });
+    onMouseRelease("right", () => {
+      returnK.active = false;
+      returnK.time = 3;
+    });
     onKeyDown("a", () => {
-      if (roll == false && dash == false) {
+      if (roll == false && dash == false && kick == false) {
         moveX = -1;
         bean.flipX(true);
         isAccel = true;
-        if (roll == false && dash == false) {
+        if (roll == false && dash == false && kick == false) {
           run = true;
         }
       }
     });
     onKeyPress("a", () => {
-      if (roll == false && dash == false) {
+      if (roll == false && dash == false && kick == false) {
         speed = baseSpeed;
         acc = accBase;
         camAcc = camAccBase;
@@ -3276,16 +3589,15 @@ vec4 frag(vec3 pos, vec2 uv, vec4 color, sampler2D tex) {
       }
     });
     onKeyRelease("a", () => {
-      if (roll == false && dash == false) {
+      if (roll == false && dash == false && kick == false) {
         run = false;
         if (bean.isGrounded()) {
           bean.play("slide");
         }
-        ;
       }
     });
     onKeyPress("s", () => {
-      if (roll == false) {
+      if (roll == false && kick == false && slamTimer.active == false) {
         if (!bean.isGrounded() && dashChargeTimer == dashCharge) {
           speed = 0;
           camSpeed = 0;
@@ -3295,17 +3607,17 @@ vec4 frag(vec3 pos, vec2 uv, vec4 color, sampler2D tex) {
       }
     });
     onKeyDown("d", () => {
-      if (roll == false && dash == false) {
+      if (roll == false && dash == false && kick == false) {
         moveX = 1;
         bean.flipX(false);
         isAccel = true;
-        if (roll == false && dash == false) {
+        if (roll == false && dash == false && kick == false) {
           run = true;
         }
       }
     });
     onKeyPress("d", () => {
-      if (roll == false && dash == false) {
+      if (roll == false && dash == false && kick == false) {
         speed = baseSpeed;
         acc = accBase;
         camAcc = camAccBase;
@@ -3316,7 +3628,7 @@ vec4 frag(vec3 pos, vec2 uv, vec4 color, sampler2D tex) {
       }
     });
     onKeyRelease("d", () => {
-      if (roll == false && dash == false) {
+      if (roll == false && dash == false && kick == false) {
         run = false;
         if (bean.isGrounded()) {
           bean.play("slide");
@@ -3324,25 +3636,32 @@ vec4 frag(vec3 pos, vec2 uv, vec4 color, sampler2D tex) {
       }
     });
     onKeyPress("w", () => {
-      if (roll == false && dash == false) {
+      if (roll == false && dash == false && kick == false) {
         if (bean.isGrounded() || jumps < maxJumps) {
-          bean.jump(700);
-          jumps++;
-          if (isAccel) {
+          let jumpForce = 700;
+          if (isKeyDown("control")) {
+            if (jumps == 0) {
+              jumpForce = 900;
+            }
+            bean.play("uppercut");
+            jumps = jumps + 2;
+          } else if (isAccel) {
             bean.play("moveJump");
+            jumps++;
           } else {
             bean.play("jump");
+            jumps++;
           }
+          bean.jump(jumpForce);
         }
         if (jumps % 2 == 0) {
-        } else {
-          bean.flipY(false);
         }
       }
     });
     onKeyPress("space", () => {
-      if (bean.isGrounded()) {
+      if (bean.isGrounded() && rollTimer.active == false) {
         roll = true;
+        rollTimer.active = true;
         bean.play("roll", {
           onEnd: () => {
             camSpeed = speed;
@@ -3355,34 +3674,45 @@ vec4 frag(vec3 pos, vec2 uv, vec4 color, sampler2D tex) {
       }
     });
     onKeyRelease("shift", () => {
-      if (roll == false) {
+      if (roll == false && kick == false && dashTimer.active == false) {
         maxSpeed = maxSpeedBase;
         charge = false;
+        dashTimer.active = true;
         dash = true;
         bean.stop();
         bean.play("dash", {
           onEnd: () => {
             dash = false;
             dashChargeTimer = dashCharge;
+            speed = speed - 500;
+            camSpeed = speed - 500;
           }
         });
       }
     });
     onKeyPress("shift", () => {
-      if (roll == false) {
+      if (roll == false && kick == false && dashTimer.active == false) {
         charge = true;
         bean.play("charge", {
           onEnd: () => {
-            charge = false;
             bean.play("chargeEnd");
+            charge = false;
           }
         });
       }
     });
     onKeyDown("shift", () => {
-      if (roll == false) {
+      if (roll == false && kick == false && dashTimer.active == false) {
         maxSpeed = 150;
-        if (dashChargeTimer > 0) {
+        if (dashChargeTimer == dashCharge && bean.curAnim() != "charge") {
+          charge = true;
+          bean.play("charge", {
+            onEnd: () => {
+              charge = false;
+              dashChargeTimer = dashChargeTimer - dt();
+            }
+          });
+        } else if (dashChargeTimer > 0) {
           dashChargeTimer = dashChargeTimer - dt();
           if (charge == false && bean.curAnim() != "chargeEnd") {
             bean.play("chargeEnd");
@@ -3409,9 +3739,9 @@ vec4 frag(vec3 pos, vec2 uv, vec4 color, sampler2D tex) {
     });
     add([
       origin("top"),
-      rect(5e4, 100),
+      rect(5e4, 300),
       pos(width() * 0.5, height() * 0.9),
-      area({ width: 5e4, height: 100 }),
+      area({ width: 5e4, height: 300 }),
       solid(),
       color(60, 60, 60),
       "ground"
@@ -3424,6 +3754,15 @@ vec4 frag(vec3 pos, vec2 uv, vec4 color, sampler2D tex) {
       solid(),
       color(60, 60, 60),
       "ground"
+    ]);
+    add([
+      origin("top"),
+      rect(200, 30),
+      pos(width() * 0.5 + 200, height() * 0.9 - 185),
+      area({ width: 200, height: 30 }),
+      solid(),
+      color(200, 60, 60),
+      "dmg"
     ]);
     add([
       origin("top"),
