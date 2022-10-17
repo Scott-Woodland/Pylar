@@ -3130,16 +3130,29 @@ vec4 frag(vec3 pos, vec2 uv, vec4 color, sampler2D tex) {
     let hang = false;
     let kick = false;
     let isPunching = false;
+    let isTouchingGrass = false;
+    let groundCollision = add([
+      pos(0, 0),
+      area({ width: 1, height: 1 }),
+      fixed()
+    ]);
     let thrown = false;
+    let throwPos = vec2();
     let landed = true;
+    let landPos = vec2();
+    let knifeDis = vec2();
     let throwX = 1;
     let ammo = 1;
+    let throwAngle = 0;
     let kTime = 0;
+    let koffset = vec2();
     let knifeSpeed = 1500;
     let punchCount = 0;
     let punchDmg = 20;
     let slamDmg = 30;
     let chargeDmg = 50;
+    let knifeDmg = 50;
+    let uppercutDmg = 30;
     let godmode = false;
     let currentEnemy = add([
       pos(0, 0),
@@ -3253,91 +3266,6 @@ vec4 frag(vec3 pos, vec2 uv, vec4 color, sampler2D tex) {
       color(70, 70, 70),
       fixed()
     ]);
-    class enemy {
-      constructor(index2, position, scale2, attackDmg, health2, speed2, aggression) {
-        this.attackDmg = attackDmg;
-        this.health = health2;
-        this.speed = speed2;
-        this.position = position;
-        this.scale = scale2;
-        this.aggression = aggression;
-        this.index = index2;
-        this.body;
-        this.enemy;
-        this.attackBox;
-        this.healthbar;
-        this.timer = new Timer(0.25, false);
-      }
-      initialise() {
-        this.body = add([
-          z(5),
-          origin("bot"),
-          pos(this.position),
-          body(),
-          scale(this.scale),
-          area({ width: 70, height: 1 }),
-          "ground",
-          this.index
-        ]);
-        this.enemy = add([
-          z(5),
-          health(this.health),
-          follow(this.body),
-          origin("bot"),
-          pos(this.position),
-          scale(this.scale),
-          color(200, 200, 200),
-          rect(70, 70),
-          area({ width: 70, height: 70 }),
-          "enemy",
-          this.index
-        ]);
-        this.attackBox = add([
-          z(5),
-          follow(this.body),
-          origin("bot"),
-          pos(this.position),
-          scale(this.scale),
-          area({ width: 150, height: 110 }),
-          "enemyAttackBox",
-          this.index
-        ]);
-        this.healthBar = add([
-          z(4),
-          origin("left"),
-          rect(120 * this.scale, 5),
-          pos(0, 0),
-          color(255, 10, 10),
-          this.index
-        ]);
-      }
-      update() {
-        this.healthBar.pos = vec2(this.body.pos.x - 60 * this.scale, this.body.pos.y - 80 * this.scale);
-        this.healthBar.width = 120 * this.scale * (this.enemy.hp() / this.health);
-        this.timer.update();
-        if (playerDamageBox.isColliding(this.enemy)) {
-          if (isPunching == true && this.timer.active == false) {
-            this.timer.active = true;
-            damage(this.enemy, punchDmg);
-            console.log(this.enemy.hp());
-          }
-          if (this.enemy.hp() == 0) {
-            destroyAll(this.index);
-          }
-        }
-      }
-    }
-    __name(enemy, "enemy");
-    let enemy1 = new enemy("1", vec2(200, 20), 1.2, 1, 100, 5, "def");
-    let enemy2 = new enemy("2", vec2(700, 20), 1, 1, 100, 5, "def");
-    let enemy3 = new enemy("3", vec2(1e3, 20), 0.9, 1, 100, 5, "def");
-    let enemy4 = new enemy("4", vec2(-100, 20), 0.7, 1, 100, 5, "def");
-    let enemy5 = new enemy("5", vec2(1700, 20), 2, 1, 100, 5, "def");
-    enemy1.initialise();
-    enemy2.initialise();
-    enemy3.initialise();
-    enemy4.initialise();
-    enemy5.initialise();
     let bean = add([
       z(6),
       origin("bottom"),
@@ -3381,6 +3309,184 @@ vec4 frag(vec3 pos, vec2 uv, vec4 color, sampler2D tex) {
       pos(width() * 0.5, height() * 0.75),
       "knife"
     ]);
+    class enemy {
+      constructor(index2, position, scale2, attackDmg, health2, speed2, aggression) {
+        this.attackDmg = attackDmg;
+        this.health = health2;
+        this.speed = speed2;
+        this.position = position;
+        this.scale = scale2;
+        this.aggression = aggression;
+        this.index = index2;
+        this.body;
+        this.enemy;
+        this.attackBox;
+        this.healthbar;
+        this.etext;
+        this.timer = new Timer(0.25, false);
+        this.respawnT = new Timer(1, false);
+        this.tbrespawned = "enemy";
+        this.dead = false;
+        this.recieved = "nada";
+        this.distance = 1e3;
+        this.visibleRange = 500;
+        this.engageRange = 200;
+        this.defenseRange = 300;
+        this.meleeRange = 30 * scale2;
+        this.offset;
+      }
+      initialise() {
+        this.body = add([
+          z(5),
+          origin("bot"),
+          pos(this.position),
+          body({ weight: 1 }),
+          scale(this.scale),
+          area({ width: 70, height: 1 }),
+          "ground",
+          this.index
+        ]);
+        this.enemy = add([
+          z(5),
+          health(this.health),
+          follow(this.body),
+          origin("bot"),
+          pos(this.position),
+          scale(this.scale),
+          color(200, 200, 200),
+          rect(70, 70),
+          area({ width: 70, height: 70 }),
+          "enemy",
+          this.index
+        ]);
+        this.attackBox = add([
+          z(5),
+          follow(this.body),
+          origin("bot"),
+          pos(this.position),
+          scale(this.scale),
+          area({ width: 150, height: 110 }),
+          "enemyAttackBox",
+          this.index
+        ]);
+        this.healthBar = add([
+          z(4),
+          origin("left"),
+          rect(120 * this.scale, 5),
+          pos(0, 0),
+          color(255, 10, 10),
+          this.index
+        ]);
+        this.etext = add([
+          z(4),
+          this.index,
+          color(255, 255, 255),
+          origin("center"),
+          text("", {
+            size: 24,
+            font: "apl386"
+          })
+        ]);
+      }
+      update() {
+        this.body.weight = 1;
+        this.distance = this.body.pos.dist(playerSlamBox.pos) - 35 * this.scale - 22.4;
+        this.healthBar.pos = vec2(this.body.pos.x - 60 * this.scale, this.body.pos.y - 80 * this.scale);
+        this.healthBar.width = 120 * this.scale * (this.enemy.hp() / this.health);
+        this.timer.update();
+        this.respawnT.update();
+        this.etext.text = Math.floor(this.distance * 10) / 10;
+        this.etext.pos = vec2(this.body.pos.x, this.body.pos.y - 100 * this.scale);
+        if (playerDamageBox.isColliding(this.enemy)) {
+          if (isPunching == true && this.timer.active == false) {
+            this.timer.active = true;
+            damage(this.enemy, punchDmg);
+            shake(1);
+            this.recieved = "punch";
+          } else if (bean.curAnim() == "uppercut" && this.timer.active == false) {
+            this.timer.active = true;
+            damage(this.enemy, uppercutDmg);
+            shake(2);
+            this.recieved = "uppercut";
+          } else if (bean.curAnim() == "dash" && this.timer.active == false) {
+            this.timer.active = true;
+            damage(this.enemy, chargeDmg);
+            shake(3);
+            this.recieved = "charge";
+          }
+        }
+        if (playerSlamBox.isColliding(this.enemy)) {
+          if (bean.curAnim() == "slamLand" && this.timer.active == false) {
+            this.timer.active = true;
+            damage(this.enemy, slamDmg);
+            shake(3);
+            this.recieved = "slam";
+          }
+        }
+        if (knife.isColliding(this.enemy)) {
+          console.log(this.body.pos);
+          knife.moveTo(this.enemy.pos.x + koffset.x, this.enemy.pos.y + koffset.y);
+          if (thrown == true && this.timer.active == false) {
+            knifeDis = Math.sqrt(Math.pow(landPos.x - throwPos.x, 2) + Math.pow(landPos.y - throwPos.y, 2));
+            knifeDmg = 75 * (knifeDis / 800);
+            thrown = false;
+            this.timer.active = true;
+            damage(this.enemy, knifeDmg);
+            shake(1);
+            this.recieved = "knife";
+          }
+          if (this.enemy.hp() <= 0 && landed == true) {
+            destroyAll(this.index);
+            this.dead = true;
+            this.respawnT.active = true;
+            this.enemy.heal(this.health);
+            thrown = true;
+            landed = false;
+            knife.stop();
+            knife.play("thrown");
+            throwAngle = 0;
+          }
+        }
+        if (this.timer.active == true) {
+          if (this.recieved == "punch") {
+            this.body.moveTo(this.body.pos.x + 10 * moveX, this.body.pos.y - 4, 2e3 * this.timer.time / 0.25);
+          } else if (this.recieved == "charge") {
+            this.body.moveTo(this.body.pos.x + 100 * moveX, this.body.pos.y - 10, 3e3 * this.timer.time / 0.25);
+          } else if (this.recieved == "knife") {
+            this.body.moveTo(this.body.pos.x + 5 * throwX, this.body.pos.y - 2, 2e3 * this.timer.time / 0.25);
+          } else if (this.recieved == "uppercut") {
+            this.body.weight = 0.3;
+            this.body.moveTo(this.body.pos.x + 5 * moveX, bean.pos.y - 600, 3e3 * this.timer.time / 0.25);
+          } else if (this.recieved == "slam") {
+            this.body.moveTo(this.body.pos.x, bean.pos.y - 100, 2e3 * this.timer.time / 0.25);
+          }
+        }
+        if (this.body.pos.y > 7e3) {
+          damage(this.enemy, this.health);
+        }
+        if (this.enemy.hp() <= 0) {
+          destroyAll(this.index);
+          this.dead = true;
+          this.respawnT.active = true;
+          this.enemy.heal(this.health);
+        }
+        if (this.respawnT.active == false && this.dead == true) {
+          this.initialise();
+          this.dead = false;
+        }
+      }
+    }
+    __name(enemy, "enemy");
+    let enemy1 = new enemy("1", vec2(200, 20), 1.2, 1, 100, 5, "def");
+    let enemy2 = new enemy("2", vec2(700, 20), 1, 1, 100, 5, "def");
+    let enemy3 = new enemy("3", vec2(1e3, 20), 0.9, 1, 100, 5, "def");
+    let enemy4 = new enemy("4", vec2(-100, 20), 0.7, 1, 100, 5, "def");
+    let enemy5 = new enemy("5", vec2(1700, 20), 2, 1, 200, 5, "def");
+    enemy1.initialise();
+    enemy2.initialise();
+    enemy3.initialise();
+    enemy4.initialise();
+    enemy5.initialise();
     let rollTimer = new Timer(0.5, false);
     let dashTimer = new Timer(3, false);
     let slamTimer = new Timer(2, false);
@@ -3412,8 +3518,7 @@ vec4 frag(vec3 pos, vec2 uv, vec4 color, sampler2D tex) {
       roll(active) {
         if (active) {
           run = false;
-          bean.move(moveX * speed, 0);
-          speed = 250;
+          speed = 400;
           camSpeed = 400;
           bean.scale.y = 0.5;
         } else {
@@ -3423,9 +3528,8 @@ vec4 frag(vec3 pos, vec2 uv, vec4 color, sampler2D tex) {
       dash(active) {
         if (active) {
           run = false;
-          bean.move(moveX * speed, 0);
-          speed = 1700 - 1500 * (dashChargeTimer.toFixed(2) / dashCharge);
-          camSpeed = 3400 - 3e3 * (dashChargeTimer.toFixed(2) / dashCharge);
+          speed = 2800 - 2400 * (dashChargeTimer / dashCharge);
+          camSpeed = 2800 - 2400 * (dashChargeTimer / dashCharge);
         }
       }
       slam(active) {
@@ -3493,6 +3597,26 @@ vec4 frag(vec3 pos, vec2 uv, vec4 color, sampler2D tex) {
       }
     }
     __name(getIndex, "getIndex");
+    function groundCollide(a2) {
+      if (a2 == true) {
+        acc = 0;
+        camAcc = 0;
+        run = false;
+        camPos(beanPos.x, camPos().y);
+        if (dash == true) {
+          dashChargeTimer = dashCharge;
+          dash = false;
+          shake(8);
+        } else {
+          speed = 0;
+          camSpeed = 0;
+        }
+      } else {
+        acc = accBase;
+        camAcc = camAccBase;
+      }
+    }
+    __name(groundCollide, "groundCollide");
     bean.onDeath(() => {
       add([
         z(10),
@@ -3517,6 +3641,8 @@ vec4 frag(vec3 pos, vec2 uv, vec4 color, sampler2D tex) {
       healthUI.color = rgb(255, 0, 0);
     });
     onUpdate(() => {
+      gravity(1600);
+      hang = false;
       aim = toWorld(mousePos());
       rollTimer.update();
       dashTimer.update();
@@ -3529,35 +3655,31 @@ vec4 frag(vec3 pos, vec2 uv, vec4 color, sampler2D tex) {
       enemy3.update();
       enemy4.update();
       enemy5.update();
-      camFriction = friction * (camAcc / acc);
-      hang = false;
-      gravity(1600);
-      if (bean.curAnim() != "punch1" || bean.curAnim() != "punch2") {
-        isPunching = false;
-      }
-      beanPos = vec2(bean.pos.x, bean.pos.y - startOffset);
-      camPos(camPos().x + moveX * camSpeed * dt(), bean.pos.y / 4 + 300);
-      playerDamageBox.pos = vec2(bean.pos.x + 50 * moveX, bean.pos.y);
-      playerSlamBox.pos = vec2(bean.pos.x, bean.pos.y + 55);
-      playerKickBox.pos = vec2(bean.pos.x + 40 * moveX, bean.pos.y + 50);
-      if (ammo == 1) {
-        knife.pos = vec2(bean.pos.x, bean.pos.y);
-      }
-      ;
+      beanAction.dash(dash);
+      beanAction.roll(roll);
+      beanAction.slam(slam);
+      beanAction.hang(hang);
+      beanAction.hang(kick);
+      beanAction.throw(thrown);
       if (run == true) {
         beanAction.run(true);
       } else {
         if (speed > 0) {
           speed = speed - friction;
           beanAction.run(true);
+          if (bean.curAnim() == "idle") {
+            bean.stop();
+            bean.play("slide");
+          }
         } else {
           speed = 0;
           isAccel = false;
-          if (bean.isGrounded()) {
-            if (bean.isFalling() && bean.isGrounded == false) {
-              bean.play("airIdle");
-            }
+          if (bean.isGrounded())
+            ;
+          if (bean.isFalling() && bean.isGrounded == false) {
+            bean.play("airIdle");
           }
+          ;
           beanAction.run(false);
         }
         if (camSpeed > 0) {
@@ -3567,12 +3689,26 @@ vec4 frag(vec3 pos, vec2 uv, vec4 color, sampler2D tex) {
           camPos(beanPos.x, camPos().y);
         }
       }
-      beanAction.roll(roll);
-      beanAction.dash(dash);
-      beanAction.slam(slam);
-      beanAction.hang(hang);
-      beanAction.hang(kick);
-      beanAction.throw(thrown);
+      groundCollide(isTouchingGrass);
+      if (!bean.isColliding(groundCollision)) {
+        isTouchingGrass = false;
+      }
+      if (bean.curAnim() != "punch1" || bean.curAnim() != "punch2") {
+        isPunching = false;
+      }
+      beanPos = vec2(bean.pos.x, bean.pos.y - startOffset);
+      camPos(camPos().x + moveX * camSpeed * dt(), bean.pos.y / 4 + 300);
+      camFriction = friction * (camAcc / acc);
+      playerDamageBox.pos = vec2(bean.pos.x + 50 * moveX, bean.pos.y);
+      playerSlamBox.pos = vec2(bean.pos.x, bean.pos.y + 55);
+      playerKickBox.pos = vec2(bean.pos.x + 40 * moveX, bean.pos.y + 50);
+      if (ammo == 1) {
+        knife.pos = vec2(bean.pos.x, bean.pos.y);
+      }
+      ;
+      if (bean.curAnim() != "punch1" || bean.curAnim() != "punch2") {
+        isPunching = false;
+      }
       if (bean.curAnim() == null) {
         if (isAccel) {
           if (bean.isGrounded()) {
@@ -3610,6 +3746,13 @@ vec4 frag(vec3 pos, vec2 uv, vec4 color, sampler2D tex) {
         console.log("Out Of Bounds");
         bean.pos = vec2(width() * 0.5, height() * 0.75);
         beanPos = vec2(bean.pos.x, bean.pos.y - startOffset);
+      }
+      if (knife.pos.y > 7e3) {
+        knife.stop();
+        knife.play("static");
+        thrown = false;
+        landed = true;
+        returnKnife();
       }
       rollUI.width = 75 * rollTimer.time / 0.5;
       if (dashTimer.active == true) {
@@ -3652,16 +3795,8 @@ vec4 frag(vec3 pos, vec2 uv, vec4 color, sampler2D tex) {
         d = vec2(c.displacement.x, c.displacement.y);
       }
       if (d.y == 0) {
-        speed = 0;
-        acc = 1;
-        camAcc = 0;
-        camSpeed = 0;
-        run = false;
-        if (dash == true) {
-          dashChargeTimer = dashCharge;
-          dash = false;
-          shake(8);
-        }
+        groundCollision = b2;
+        isTouchingGrass = true;
       }
       if (d.x == -0) {
       }
@@ -3694,10 +3829,20 @@ vec4 frag(vec3 pos, vec2 uv, vec4 color, sampler2D tex) {
       knife.play("static");
       thrown = false;
       landed = true;
+      landPos = knife.pos;
       shake(2);
     });
     onCollide("knife", "bean", (a2, b2, c) => {
       returnKnife();
+    });
+    onCollide("knife", "enemy", (a2, b2, c) => {
+      getIndex(b2);
+      koffset = vec2(knife.pos.x - b2.pos.x, knife.pos.y - b2.pos.y);
+      knife.stop();
+      knife.play("static");
+      landed = true;
+      landPos = knife.pos;
+      shake(2);
     });
     onCollide("melee", "enemy", (a2, b2, c) => {
       getIndex(b2);
@@ -3741,6 +3886,7 @@ vec4 frag(vec3 pos, vec2 uv, vec4 color, sampler2D tex) {
       if (roll == false && dash == false && kick == false && ammo > 0) {
         ammoUI.color = rgb(30, 30, 30);
         thrown = true;
+        throwPos = bean.pos;
         ammo--;
         knife.play("thrown");
         throwAngle = Math.atan2(aim.y - knife.pos.y, aim.x - knife.pos.x);
@@ -3935,18 +4081,9 @@ vec4 frag(vec3 pos, vec2 uv, vec4 color, sampler2D tex) {
     });
     add([
       origin("top"),
-      rect(5e4, 300),
+      rect(4e3, 300),
       pos(width() * 0.5, height() * 0.9),
-      area({ width: 5e4, height: 300 }),
-      solid(),
-      color(60, 60, 60),
-      "ground"
-    ]);
-    add([
-      origin("top"),
-      rect(200, 30),
-      pos(width() * 0.5 + 500, height() * 0.9 - 185),
-      area({ width: 200, height: 30 }),
+      area({ width: 4e3, height: 300 }),
       solid(),
       color(60, 60, 60),
       "ground"
@@ -3960,6 +4097,15 @@ vec4 frag(vec3 pos, vec2 uv, vec4 color, sampler2D tex) {
       color(200, 60, 60),
       "ground",
       "dmg"
+    ]);
+    add([
+      origin("top"),
+      rect(200, 30),
+      pos(width() * 0.5 + 500, height() * 0.9 - 185),
+      area({ width: 200, height: 30 }),
+      solid(),
+      color(60, 60, 60),
+      "ground"
     ]);
     add([
       origin("top"),

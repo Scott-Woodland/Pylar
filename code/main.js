@@ -218,16 +218,29 @@ scene("main", () => {
     let hang = false;
     let kick = false;
     let isPunching = false;
+    let isTouchingGrass = false; 
+    let groundCollision = add([
+        pos(0,0),
+        area({width: 1, height: 1}),
+        fixed(),
+    ]);
     let thrown = false;
+    let throwPos = vec2();
     let landed = true;
+    let landPos = vec2();
+    let knifeDis= vec2();
     let throwX = 1;
     let ammo = 1;
+    let throwAngle = 0;
     let kTime = 0;
+    let koffset = vec2()
     let knifeSpeed = 1500;
     let punchCount = 0;
     let punchDmg = 20;
     let slamDmg = 30;
     let chargeDmg = 50;
+    let knifeDmg = 50;
+    let uppercutDmg = 30;
     let godmode = false;
     let currentEnemy = add([
         pos(0,0),
@@ -341,95 +354,6 @@ scene("main", () => {
         color(70,70,70),
         fixed()
     ])
-     
-    class enemy {
-        constructor(index, position, scale, attackDmg,health,speed,aggression) { 
-        this.attackDmg = attackDmg;
-        this.health = health;
-        this.speed = speed;
-        this.position = position;
-        this.scale = scale;
-        this.aggression = aggression;
-        this.index = index;
-        this.body;
-        this.enemy;
-        this.attackBox;
-        this.healthbar;
-        this.timer = new Timer(0.25, false);
-        }
-        initialise(){
-            this.body = add([
-            z(5),
-            origin("bot"),
-            pos(this.position),
-            body(),
-            scale(this.scale),
-            area({width: 70, height: 1}),
-            "ground",
-            this.index
-            ])
-            this.enemy = add([
-            z(5),
-            health(this.health),
-            follow(this.body),
-            origin("bot"),
-            pos(this.position),
-            scale(this.scale),
-            color(200,200,200),
-            rect(70,70),
-            area({width: 70, height: 70}),
-            "enemy",
-            this.index
-            ])
-            this.attackBox = add([
-            z(5),
-            follow(this.body),
-            origin("bot"),
-            pos(this.position),
-            scale(this.scale),
-            area({width: 150, height: 110}),
-            "enemyAttackBox",
-            this.index
-        ])
-            this.healthBar = add([
-                z(4),
-                origin("left"),
-                rect(120*this.scale,5),
-                pos(0,0),
-                color(255, 10, 10),
-                this.index
-            ])
-        }      
-        update(){
-            this.healthBar.pos = vec2(this.body.pos.x - (60 * this.scale) ,this.body.pos.y - (80 * this.scale))
-            this.healthBar.width = 120 * this.scale * (this.enemy.hp()/this.health)
-            this.timer.update();
-            
-            if (playerDamageBox.isColliding(this.enemy)){
-                if (isPunching == true && this.timer.active == false){
-                    this.timer.active = true;
-                    damage(this.enemy, punchDmg);
-                    console.log(this.enemy.hp())
-                }
-                if(this.enemy.hp() == 0){
-                    destroyAll(this.index);
-                }
-            }
-            
-                
-        }
-    }
-    let enemy1 = new enemy("1", vec2(200,20), 1.2, 1, 100, 5 ,"def")
-    let enemy2 = new enemy("2", vec2(700,20), 1, 1, 100, 5 ,"def")
-    let enemy3 = new enemy("3", vec2(1000,20), 0.9, 1, 100, 5 ,"def")
-    let enemy4 = new enemy("4", vec2(-100,20), 0.7, 1, 100, 5 ,"def")
-    let enemy5 = new enemy("5", vec2(1700,20), 2, 1, 100, 5 ,"def")
-    
-    enemy1.initialise();
-    enemy2.initialise();
-    enemy3.initialise();
-    enemy4.initialise();
-    enemy5.initialise();
 
     let bean = add([
         z(6),
@@ -474,6 +398,195 @@ scene("main", () => {
         pos(width() * 0.5, height() * 0.75),
         "knife",
     ])
+
+    class enemy {
+        constructor(index, position, scale, attackDmg,health,speed,aggression) { 
+        this.attackDmg = attackDmg;
+        this.health = health;
+        this.speed = speed;
+        this.position = position;
+        this.scale = scale;
+        this.aggression = aggression;
+        this.index = index;
+        this.body;
+        this.enemy;
+        this.attackBox;
+        this.healthbar;
+        this.etext;
+        this.timer = new Timer(0.25, false);
+        this.respawnT = new Timer(1,false);
+        this.tbrespawned = "enemy"
+        this.dead = false;
+        this.recieved = "nada";
+        this.distance = 1000;
+        this.visibleRange = 500;
+        this.engageRange = 200;
+        this.defenseRange = 300;
+        this.meleeRange = 30 * scale;  
+        this.offset;
+        }
+        initialise(){
+            this.body = add([
+            z(5),
+            origin("bot"),
+            pos(this.position),
+            body({weight:1}),
+            scale(this.scale),
+            area({width: 70, height: 1}),
+            "ground",
+            this.index
+            ])
+            this.enemy = add([
+            z(5),
+            health(this.health),
+            follow(this.body),
+            origin("bot"),
+            pos(this.position),
+            scale(this.scale),
+            color(200,200,200),
+            rect(70,70),
+            area({width: 70, height: 70}),
+            "enemy",
+            this.index
+            ])
+            this.attackBox = add([
+            z(5),
+            follow(this.body),
+            origin("bot"),
+            pos(this.position),
+            scale(this.scale),
+            area({width: 150, height: 110}),
+            "enemyAttackBox",
+            this.index
+        ])
+            this.healthBar = add([
+                z(4),
+                origin("left"),
+                rect(120*this.scale,5),
+                pos(0,0),
+                color(255, 10, 10),
+                this.index
+            ])
+            this.etext = add([
+                z(4),
+                this.index,
+                color(255,255,255),
+                origin("center"),
+                text("", {
+                size: 24,
+                font: "apl386", // there're 4 built-in fonts: "apl386", "apl386o", "sink", and "sinko"
+                }),
+                ])  
+        }      
+        update(){
+            this.body.weight = 1;
+            this.distance = this.body.pos.dist(playerSlamBox.pos) - (35 * this.scale) - 22.4;
+            this.healthBar.pos = vec2(this.body.pos.x - (60 * this.scale) ,this.body.pos.y - (80 * this.scale))
+            this.healthBar.width = 120 * this.scale * (this.enemy.hp()/this.health)
+            this.timer.update();
+            this.respawnT.update();
+            this.etext.text = Math.floor(this.distance * 10)/10;
+            this.etext.pos = vec2(this.body.pos.x, this.body.pos.y - (100 * this.scale));
+            
+            if (playerDamageBox.isColliding(this.enemy)){
+                if (isPunching == true && this.timer.active == false){
+                    this.timer.active = true;
+                    damage(this.enemy, punchDmg);
+                    shake(1);
+                    this.recieved = "punch"
+                }
+                else if (bean.curAnim() == "uppercut" && this.timer.active == false){
+                    this.timer.active = true;
+                    damage(this.enemy, uppercutDmg);
+                    shake(2);
+                    this.recieved = "uppercut"
+                }
+                else if (bean.curAnim() == "dash" && this.timer.active == false){
+                    this.timer.active = true;
+                    damage(this.enemy, chargeDmg);
+                    shake(3);
+                    this.recieved = "charge"
+                }
+            }
+            if (playerSlamBox.isColliding(this.enemy)){
+                if (bean.curAnim() == "slamLand" && this.timer.active == false){
+                    this.timer.active = true;
+                    damage(this.enemy, slamDmg);
+                    shake(3);
+                    this.recieved = "slam"
+                }
+            }
+            if (knife.isColliding(this.enemy)){
+                console.log(this.body.pos)
+                knife.moveTo(this.enemy.pos.x + koffset.x, this.enemy.pos.y + koffset.y); 
+                if (thrown == true && this.timer.active == false){
+                    knifeDis = Math.sqrt(Math.pow(landPos.x - throwPos.x,2) + Math.pow(landPos.y - throwPos.y,2));
+                    knifeDmg = 75 * (knifeDis/800);
+                    thrown = false;
+                    this.timer.active = true;
+                    damage(this.enemy, knifeDmg);
+                    shake(1);
+                    this.recieved = "knife"
+                }
+                if(this.enemy.hp() <= 0 && landed == true){
+                    destroyAll(this.index);
+                    this.dead = true;
+                    this.respawnT.active = true;  
+                    this.enemy.heal(this.health);
+                    thrown = true;
+                    landed = false;
+                    knife.stop();
+                    knife.play("thrown");
+                    throwAngle = 0;
+                }
+            }
+            if(this.timer.active == true){
+                if (this.recieved == "punch"){
+                    this.body.moveTo(this.body.pos.x + (10 * moveX), this.body.pos.y - 4, 2000 * this.timer.time/0.25)
+                }
+                else if (this.recieved == "charge"){
+                    this.body.moveTo(this.body.pos.x + (100 * moveX), this.body.pos.y - 10, 3000 * this.timer.time/0.25)
+                }
+                else if (this.recieved == "knife"){
+                    this.body.moveTo(this.body.pos.x + (5 * throwX), this.body.pos.y - 2, 2000 * this.timer.time/0.25)
+                }
+                else if (this.recieved == "uppercut"){
+                    this.body.weight = 0.3;
+                    this.body.moveTo(this.body.pos.x + (5 * moveX), bean.pos.y - 600, 3000 * this.timer.time/0.25)
+                }
+                else if (this.recieved == "slam"){
+                    this.body.moveTo(this.body.pos.x, bean.pos.y - 100, 2000 * this.timer.time/0.25)
+                }
+                
+            }
+
+            if (this.body.pos.y > 7000){
+                damage(this.enemy, this.health);
+            }
+            if(this.enemy.hp() <= 0){
+                    destroyAll(this.index);
+                    this.dead = true;
+                    this.respawnT.active = true;  
+                    this.enemy.heal(this.health);
+                }
+            if (this.respawnT.active == false && this.dead == true){
+                    this.initialise();
+                    this.dead = false;
+                }  
+            
+        }
+    }
+    let enemy1 = new enemy("1", vec2(200,20), 1.2, 1, 100, 5 ,"def")
+    let enemy2 = new enemy("2", vec2(700,20), 1, 1, 100, 5 ,"def")
+    let enemy3 = new enemy("3", vec2(1000,20), 0.9, 1, 100, 5 ,"def")
+    let enemy4 = new enemy("4", vec2(-100,20), 0.7, 1, 100, 5 ,"def")
+    let enemy5 = new enemy("5", vec2(1700,20), 2, 1, 200, 5 ,"def")
+    
+    enemy1.initialise();
+    enemy2.initialise();
+    enemy3.initialise();
+    enemy4.initialise();
+    enemy5.initialise();
     
     let rollTimer = new Timer(0.5,false);
     let dashTimer = new Timer(3,false);
@@ -507,8 +620,8 @@ scene("main", () => {
         roll(active) {
             if (active) {
                 run = false;
-                bean.move(moveX * speed, 0);
-                speed = 250;
+                speed = 400;
+                //bean.move(moveX * speed, 0);
                 camSpeed = 400;
                 bean.scale.y = 0.5;
             }
@@ -519,9 +632,9 @@ scene("main", () => {
         dash(active) {
             if (active) {
                 run = false;
-                bean.move(moveX * speed, 0);
-                speed = 1700 - (1500 * (dashChargeTimer.toFixed(2) / dashCharge));
-                camSpeed = 3400 - (3000 * (dashChargeTimer.toFixed(2) / dashCharge));
+                speed = 2800 - (2400 * (dashChargeTimer / dashCharge));
+                //bean.move(moveX * speed, 0);
+                camSpeed = 2800 - (2400 * (dashChargeTimer / dashCharge));
             }
         }
         slam(active) {
@@ -613,6 +726,28 @@ scene("main", () => {
             index = (parseInt(index) + 1).toString();
         }
     }
+    function groundCollide(a){
+        if (a == true){
+            acc = 0;
+            camAcc = 0;    
+            run = false;
+            camPos(beanPos.x, camPos().y);
+            if (dash == true) {
+                dashChargeTimer = dashCharge;
+                dash = false;
+                shake(8);
+            }
+            else{
+                speed = 0;
+                camSpeed = 0;
+            }
+            //cancels dash when connecting with a wall, otherwise wont end and will build up very large force
+        }
+        else{
+            acc = accBase
+            camAcc = camAccBase
+        }
+    }
     
     bean.onDeath(() => {
         add([
@@ -638,6 +773,8 @@ scene("main", () => {
     });
     onUpdate(() => {
         //world update
+        gravity(1600);
+        hang = false;
         aim = toWorld(mousePos())
         rollTimer.update();
         dashTimer.update();
@@ -645,32 +782,19 @@ scene("main", () => {
         returnK.update();
         inv.update();
         enInv.update();
+        
         enemy1.update();
         enemy2.update();
         enemy3.update();
         enemy4.update();
         enemy5.update();
         
-        camFriction = friction * (camAcc / acc);
-        hang = false;
-        gravity(1600);
-
-        if (bean.curAnim() != "punch1" || bean.curAnim() != "punch2"){
-            isPunching = false;
-        }
-        //Create offset player coordinates
-        beanPos = vec2(bean.pos.x, bean.pos.y - startOffset);
-        
-        //Camera Position Update
-        camPos(camPos().x + (moveX * camSpeed) * dt(), bean.pos.y/4 + 300); //height() * 0.75 - startOffset);
-        
-        //Hitbox Position Update
-        playerDamageBox.pos = vec2(bean.pos.x + (50 * moveX), bean.pos.y);
-        playerSlamBox.pos = vec2(bean.pos.x, bean.pos.y + 55);
-        playerKickBox.pos = vec2(bean.pos.x + (40 * moveX), bean.pos.y + 50);
-        if(ammo == 1){knife.pos = vec2(bean.pos.x , bean.pos.y)};
-        
-        //Action Functions
+        beanAction.dash(dash);
+        beanAction.roll(roll);
+        beanAction.slam(slam);
+        beanAction.hang(hang);
+        beanAction.hang(kick);
+        beanAction.throw(thrown);
         if (run == true) {
             beanAction.run(true);
         }
@@ -679,14 +803,18 @@ scene("main", () => {
             if (speed > 0) {
                 speed = (speed - friction);
                 beanAction.run(true);
+                if (bean.curAnim() == "idle"){
+                    bean.stop();
+                    bean.play("slide");
+                }
             }
             else {
                 speed = 0;
-                isAccel = false
-                if (bean.isGrounded())
-                    if (bean.isFalling() && bean.isGrounded == false) {
+                isAccel = false;
+                if (bean.isGrounded());
+                if (bean.isFalling() && bean.isGrounded == false) {
                         bean.play("airIdle");
-                    }
+                    };
                 beanAction.run(false);
             }
             if (camSpeed > 0) {
@@ -697,13 +825,27 @@ scene("main", () => {
                 camPos(beanPos.x, camPos().y);
             }
         }
-        beanAction.roll(roll);
-        beanAction.dash(dash);
-        beanAction.slam(slam);
-        beanAction.hang(hang);
-        beanAction.hang(kick);
-        beanAction.throw(thrown);
-
+        
+        groundCollide(isTouchingGrass);
+        if (!bean.isColliding(groundCollision)){isTouchingGrass = false}
+        
+        if (bean.curAnim() != "punch1" || bean.curAnim() != "punch2"){
+            isPunching = false;
+        }
+        //position updates
+        beanPos = vec2(bean.pos.x, bean.pos.y - startOffset);
+        camPos(camPos().x + (moveX * camSpeed) * dt() , bean.pos.y/4 + 300); //height() * 0.75 - startOffset);
+        camFriction = friction * (camAcc / acc);
+        
+        playerDamageBox.pos = vec2(bean.pos.x + (50 * moveX), bean.pos.y);
+        playerSlamBox.pos = vec2(bean.pos.x, bean.pos.y + 55);
+        playerKickBox.pos = vec2(bean.pos.x + (40 * moveX), bean.pos.y + 50);
+        if(ammo == 1){knife.pos = vec2(bean.pos.x , bean.pos.y)};
+        
+        if (bean.curAnim() != "punch1" || bean.curAnim() != "punch2"){
+            isPunching = false;
+        }
+             
         //Refresh Animations
         if (bean.curAnim() == null) {
             if (isAccel) {
@@ -749,11 +891,16 @@ scene("main", () => {
             bean.pos = vec2(width() * 0.5, height() * 0.75);
             beanPos = vec2(bean.pos.x, bean.pos.y - startOffset);
         }
+        if (knife.pos.y > 7000){   
+            knife.stop();
+            knife.play("static");
+            thrown = false;
+            landed = true;
+            returnKnife();
+        }
         
         //UI Update 
-        //console.log(bean.curAnim())
         rollUI.width = 75 * rollTimer.time/0.5;
-        
         if (dashTimer.active == true){
                dashUI.width = 450 * ((3 - dashTimer.time)/3);
                dashUI.color = rgb(240, 197, 5);
@@ -766,7 +913,6 @@ scene("main", () => {
             dashUI.width = 450;
             dashUI.color = rgb(3, 222, 255);  
         }
-        
         if (slamTimer.active == true){
            slamUI.height = 20 * ((2 - slamTimer.time)/2); 
            slamUI.color = rgb(255, 89, 43);
@@ -800,19 +946,9 @@ scene("main", () => {
         else {
             d = vec2(c.displacement.x, c.displacement.y)
         }
-        if (d.y == 0) { //stop the camera from moving without character by killing all acceleration
-            speed = 0;
-            acc = 1;
-            camAcc = 0;
-            camSpeed = 0;
-            run = false;
-            if (dash == true) {
-                dashChargeTimer = dashCharge;
-                dash = false;
-                shake(8);
-            }
-
-            //cancels dash when connecting with a wall, otherwise wont end and will build up very large force
+        if (d.y == 0) { //stop the camera from moving without character by killing all acceleration 
+            groundCollision = b
+            isTouchingGrass = true;
         }
 
         if (d.x == -0) {
@@ -846,15 +982,24 @@ scene("main", () => {
     onCollide("knife", "ground", (a, b, c) => {
         knife.stop();
         knife.play("static");
-        //knife.scale = 0.75;
         thrown = false;
         landed = true;
+        landPos = knife.pos;
         shake(2);
     });
     onCollide("knife", "bean", (a, b, c) => {
         returnKnife(); 
     });
     
+    onCollide("knife", "enemy", (a, b, c) => {
+        getIndex(b);
+        koffset = vec2((knife.pos.x - b.pos.x), (knife.pos.y - b.pos.y));
+        knife.stop();
+        knife.play("static");
+        landed = true;
+        landPos = knife.pos;
+        shake(2);
+    });
     onCollide("melee", "enemy", (a, b, c) => {
         getIndex(b);
     });
@@ -900,6 +1045,7 @@ scene("main", () => {
         if (roll == false && dash == false && kick == false && ammo > 0) {
             ammoUI.color = rgb(30,30,30);
             thrown = true;
+            throwPos = bean.pos;
             ammo--;
             knife.play("thrown");
             throwAngle = Math.atan2((aim.y - knife.pos.y),(aim.x - knife.pos.x)); //* 180 / Math.PI;
@@ -1103,24 +1249,14 @@ scene("main", () => {
 
     add([
         origin("top"),
-        rect(50000, 300),
+        rect(4000, 300),
         pos(width() * 0.5, height() * 0.9),
-        area({ width: 50000, height: 300 }),
+        area({ width: 4000, height: 300 }),
         solid(),
         color(60, 60, 60),
         "ground"
     ]) //ground
     //Obsticles
-    add([
-        origin("top"),
-        rect(200, 30),
-        pos(width() * 0.5 + 500, height() * 0.9 - 185),
-        area({ width: 200, height: 30 }),
-        solid(),
-        color(60, 60, 60),
-        "ground"
-    ])
-    //platforms
     add([
         origin("top"),
         rect(200, 30),
@@ -1130,6 +1266,16 @@ scene("main", () => {
         color(200, 60, 60),
         "ground",
         "dmg"
+    ])
+    //platforms
+    add([
+        origin("top"),
+        rect(200, 30),
+        pos(width() * 0.5 + 500, height() * 0.9 - 185),
+        area({ width: 200, height: 30 }),
+        solid(),
+        color(60, 60, 60),
+        "ground"
     ])
     add([
         origin("top"),
