@@ -23,7 +23,7 @@ kaboom({
     background: [235, 100, 100],
 })
 loadSprite("bean", "sprites/PylarSpriteSheet.png", {
-    "width": 2048,
+    "width": 2040,
     "height": 2048,
     "sliceX": 16,
     "sliceY": 16,
@@ -158,6 +158,12 @@ loadSprite("knife", "sprites/Shurkurhainkin.png", {
     }
 })
 loadSprite("KIcon", "sprites/Shuricon.png")
+loadSprite("background0", "sprites/ocean.png")
+loadSprite("background1", "sprites/mountains.png")
+loadSprite("background2", "sprites/temple.png")
+loadSprite("background3", "sprites/frontland.png")
+loadSprite("background4", "sprites/roofs.png")
+
 scene("start", () => {
     let menuText = add([
         origin("center"),
@@ -174,6 +180,64 @@ scene("start", () => {
 go("start");
 
 scene("main", () => {
+    let ocean = add([
+    sprite("background0"),
+    pos(width()*0.5, height()*0.5),
+    origin("center"),
+    scale(1),
+    fixed()
+      ]);
+    let mountains = add([
+    sprite("background1"),
+    pos(width()*0.5, height()*0.5),
+    origin("center"),
+    scale(1),
+    fixed()
+      ]);
+    let temple = add([
+    sprite("background2"),
+    pos(width()*0.5, height()*0.5),
+    origin("center"),
+    scale(1),
+    fixed()
+      ]);
+    let frontland = add([
+    sprite("background3"),
+    pos(width()*0.5, height()*0.5),
+    origin("center"),
+    scale(1),
+    fixed()
+      ]);
+    let roofs = add([
+    sprite("background4", {
+        width: 21600,
+        tiled: true,
+    }),
+    pos(width()*0.5, height()*0.5),
+    origin("center"),
+    scale(1),
+    fixed()
+    ]);
+    let roofs2 = add([
+    sprite("background4",{
+        width: 21600,
+        tiled: true,
+    }),
+    pos(width()*0.5, height()),
+    origin("bot"),
+    scale(1),
+    fixed()
+    ]);
+    let roofs3 = add([
+    z(7),
+    /*sprite("background4",{
+        width: 21600,
+        tiled: true,
+    }),*/
+    pos(width()*0.5, height()*0.5 + 75),
+    origin("center"),
+    scale(1),
+    ]);
     isFullscreen(true);
     class Timer {
     constructor(time, active) {
@@ -210,6 +274,7 @@ scene("main", () => {
     let camFriction = friction * (camAcc / acc);
     const startOffset = height() * 0.3;
     let jumps = 0;
+    let maxJumps = 50;
     let roll = false;
     let run = false;
     let dash = false;
@@ -306,54 +371,55 @@ scene("main", () => {
         pos(width() - 60, height() - 50),
         fixed()
     ])
+    let UIColour = rgb(50,35,35);
     add([
         z(9),
         origin("bot"),
         rect(1000,60),
         pos(width() * 0.5, height()),
-        color(70,70,70),
+        color(UIColour),
         fixed()
-    ])
+    ]) //lower bar rect
     add([
         z(9),
         origin("bot"),
         circle(60),
         pos(width() * 0.5 - 500, height()),
-        color(70,70,70),
+        color(UIColour),
         fixed()
-    ])
+    ]) //lower bar LCircle
     add([
         z(9),
         origin("bot"),
         circle(60),
         pos(width() * 0.5 + 500, height()),
-        color(70,70,70),
+        color(UIColour),
         fixed()
-    ])
+    ]) //lower bar RCircle
     add([
         z(9),
         origin("center"),
         circle(66),
         pos(width() - 60, height() - 40),
-        color(70,70,70),
+        color(UIColour),
         fixed()
-    ])
+    ]) //botright circle
     add([
         z(9),
         origin("botright"),
         rect(60,106),
         pos(width(),height()),
-        color(70,70,70),
+        color(UIColour),
         fixed()
-    ])
+    ]) //botright rect up
     add([
         z(9),
         origin("botright"),
         rect(126, 40),
         pos(width(),height()),
-        color(70,70,70),
+        color(UIColour),
         fixed()
-    ])
+    ]) //botright rect along
 
     let bean = add([
         z(6),
@@ -400,13 +466,12 @@ scene("main", () => {
     ])
 
     class enemy {
-        constructor(index, position, scale, attackDmg,health,speed,aggression) { 
+        constructor(index, position, scale, attackDmg, health, speed) { 
         this.attackDmg = attackDmg;
         this.health = health;
         this.speed = speed;
         this.position = position;
         this.scale = scale;
-        this.aggression = aggression;
         this.index = index;
         this.body;
         this.enemy;
@@ -414,15 +479,17 @@ scene("main", () => {
         this.healthbar;
         this.etext;
         this.timer = new Timer(0.25, false);
+        this.attackT = new Timer(1, false);
         this.respawnT = new Timer(1,false);
         this.tbrespawned = "enemy"
-        this.dead = false;
+        this.state = "idle"
         this.recieved = "nada";
         this.distance = 1000;
         this.visibleRange = 500;
-        this.engageRange = 200;
+        this.engageRange = 170;
         this.defenseRange = 300;
-        this.meleeRange = 30 * scale;  
+        this.meleeRange = 35 * scale;  
+        this.moveX;
         this.offset;
         }
         initialise(){
@@ -479,108 +546,150 @@ scene("main", () => {
                 ])  
         }      
         update(){
-            this.body.weight = 1;
-            this.distance = this.body.pos.dist(playerSlamBox.pos) - (35 * this.scale) - 22.4;
-            this.healthBar.pos = vec2(this.body.pos.x - (60 * this.scale) ,this.body.pos.y - (80 * this.scale))
-            this.healthBar.width = 120 * this.scale * (this.enemy.hp()/this.health)
-            this.timer.update();
+            this.attackT.update();
+            console.log(this.attackT.time);
             this.respawnT.update();
-            this.etext.text = Math.floor(this.distance * 10)/10;
-            this.etext.pos = vec2(this.body.pos.x, this.body.pos.y - (100 * this.scale));
-            
-            if (playerDamageBox.isColliding(this.enemy)){
-                if (isPunching == true && this.timer.active == false){
-                    this.timer.active = true;
-                    damage(this.enemy, punchDmg);
-                    shake(1);
-                    this.recieved = "punch"
+            this.timer.update();
+            if (this.state != "dead"){
+                this.body.weight = 1;
+                Math.floor(this.distance = this.body.pos.dist(playerSlamBox.pos) - (35 * this.scale) - 22.4);
+                this.healthBar.pos = vec2(this.body.pos.x - (60 * this.scale) ,this.body.pos.y - (80 * this.scale))
+                this.healthBar.width = 120 * this.scale * (this.enemy.hp()/this.health)
+                this.etext.text = this.state + " " + Math.floor(this.distance/10) * 10;
+                this.etext.pos = vec2(this.body.pos.x, this.body.pos.y - (100 * this.scale));
+                
+                if (bean.pos.x - this.body.pos.x > 0){
+                    this.moveX = -1;
                 }
-                else if (bean.curAnim() == "uppercut" && this.timer.active == false){
-                    this.timer.active = true;
-                    damage(this.enemy, uppercutDmg);
-                    shake(2);
-                    this.recieved = "uppercut"
+                else {
+                    this.moveX = 1;
                 }
-                else if (bean.curAnim() == "dash" && this.timer.active == false){
-                    this.timer.active = true;
-                    damage(this.enemy, chargeDmg);
-                    shake(3);
-                    this.recieved = "charge"
+                if (this.distance > this.visibleRange){
+                    this.state = "idle"
                 }
-            }
-            if (playerSlamBox.isColliding(this.enemy)){
-                if (bean.curAnim() == "slamLand" && this.timer.active == false){
-                    this.timer.active = true;
-                    damage(this.enemy, slamDmg);
-                    shake(3);
-                    this.recieved = "slam"
+                else if(this.distance < this.meleeRange){
+                    this.state = "melee"
                 }
-            }
-            if (knife.isColliding(this.enemy)){
-                console.log(this.body.pos)
-                knife.moveTo(this.enemy.pos.x + koffset.x, this.enemy.pos.y + koffset.y); 
-                if (thrown == true && this.timer.active == false){
-                    knifeDis = Math.sqrt(Math.pow(landPos.x - throwPos.x,2) + Math.pow(landPos.y - throwPos.y,2));
-                    knifeDmg = 75 * (knifeDis/800);
-                    thrown = false;
-                    this.timer.active = true;
-                    damage(this.enemy, knifeDmg);
-                    shake(1);
-                    this.recieved = "knife"
+                else if(this.distance < this.engageRange){
+                    this.state = "engage"
+                    this.speed = 200;
+                    this.body.move(-this.moveX * this.speed, 0)
                 }
-                if(this.enemy.hp() <= 0 && landed == true){
-                    destroyAll(this.index);
-                    this.dead = true;
-                    this.respawnT.active = true;  
-                    this.enemy.heal(this.health);
-                    thrown = true;
-                    landed = false;
-                    knife.stop();
-                    knife.play("thrown");
-                    throwAngle = 0;
+                else if(this.distance > this.engageRange && this.distance < this.defenseRange){
+                    this.state = "defend"
+                    this.speed = 100
+                    if (this.distance > this.engageRange + ((this.defenseRange - this.engageRange)/2)){
+                        this.body.move(-this.moveX * this.speed, 0)
+                    }
+                    else{
+                        this.body.move(this.moveX * this.speed, 0)
+                    }
                 }
-            }
-            if(this.timer.active == true){
-                if (this.recieved == "punch"){
-                    this.body.moveTo(this.body.pos.x + (10 * moveX), this.body.pos.y - 4, 2000 * this.timer.time/0.25)
+                else if (this.distance <= this.visibleRange){
+                    this.state = "alerted"
+                    this.speed = 50;
+                    this.body.move(-this.moveX * this.speed, 0)
                 }
-                else if (this.recieved == "charge"){
-                    this.body.moveTo(this.body.pos.x + (100 * moveX), this.body.pos.y - 10, 3000 * this.timer.time/0.25)
-                }
-                else if (this.recieved == "knife"){
-                    this.body.moveTo(this.body.pos.x + (5 * throwX), this.body.pos.y - 2, 2000 * this.timer.time/0.25)
-                }
-                else if (this.recieved == "uppercut"){
-                    this.body.weight = 0.3;
-                    this.body.moveTo(this.body.pos.x + (5 * moveX), bean.pos.y - 600, 3000 * this.timer.time/0.25)
-                }
-                else if (this.recieved == "slam"){
-                    this.body.moveTo(this.body.pos.x, bean.pos.y - 100, 2000 * this.timer.time/0.25)
+
+                if(bean.isColliding(this.attackBox)){
+                    if(this.attackT.time = 0){
+                        damage(bean, 1);
+                        this.attackT.time = 1;
+                    }
                 }
                 
+                if (playerDamageBox.isColliding(this.enemy)){
+                    if (isPunching == true && this.timer.active == false){
+                        this.timer.active = true;
+                        damage(this.enemy, punchDmg);
+                        shake(1);
+                        this.recieved = "punch"
+                    }
+                    else if (bean.curAnim() == "uppercut" && this.timer.active == false){
+                        this.timer.active = true;
+                        damage(this.enemy, uppercutDmg);
+                        shake(2);
+                        this.recieved = "uppercut"
+                    }
+                    else if (bean.curAnim() == "dash" && this.timer.active == false){
+                        this.timer.active = true;
+                        damage(this.enemy, chargeDmg);
+                        shake(3);
+                        this.recieved = "charge"
+                    }
+                }
+                if (playerSlamBox.isColliding(this.enemy)){
+                    if (bean.curAnim() == "slamLand" && this.timer.active == false){
+                        this.timer.active = true;
+                        damage(this.enemy, slamDmg);
+                        shake(3);
+                        this.recieved = "slam"
+                    }
+                }
+                if (knife.isColliding(this.enemy)){
+                    knife.moveTo(this.enemy.pos.x + koffset.x, this.enemy.pos.y + koffset.y); 
+                    if (thrown == true && this.timer.active == false){
+                        knifeDis = Math.sqrt(Math.pow(landPos.x - throwPos.x,2) + Math.pow(landPos.y - throwPos.y,2));
+                        knifeDmg = 75 * (knifeDis/800);
+                        thrown = false;
+                        this.timer.active = true;
+                        damage(this.enemy, knifeDmg);
+                        shake(1);
+                        this.recieved = "knife"
+                    }
+                    if(this.enemy.hp() <= 0 && landed == true){
+                        destroyAll(this.index);
+                        this.state = "dead";
+                        this.respawnT.active = true;  
+                        this.enemy.heal(this.health);
+                        thrown = true;
+                        landed = false;
+                        knife.stop();
+                        knife.play("thrown");
+                        throwAngle = 0;
+                    }
+                }
+                if(this.timer.active == true){
+                    if (this.recieved == "punch"){
+                        this.body.moveTo(this.body.pos.x + (10 * this.moveX), this.body.pos.y - 4, 2000 * this.timer.time/0.25)
+                    }
+                    else if (this.recieved == "charge"){
+                        this.body.moveTo(this.body.pos.x + (100 * this.moveX), this.body.pos.y - 10, 3000 * this.timer.time/0.25)
+                    }
+                    else if (this.recieved == "knife"){
+                        this.body.moveTo(this.body.pos.x + (5 * throwX), this.body.pos.y - 2, 2000 * this.timer.time/0.25)
+                    }
+                    else if (this.recieved == "uppercut"){
+                        this.body.weight = 0.3;
+                        this.body.moveTo(this.body.pos.x + (250 * this.moveX), bean.pos.y - 600, 3000 * this.timer.time/0.25)
+                    }
+                    else if (this.recieved == "slam"){
+                        this.body.moveTo(this.body.pos.x + (10 * this.moveX), bean.pos.y - 100, 2000 * this.timer.time/0.25)
+                    }
+                    
+                }
             }
-
             if (this.body.pos.y > 7000){
                 damage(this.enemy, this.health);
             }
             if(this.enemy.hp() <= 0){
                     destroyAll(this.index);
-                    this.dead = true;
+                    this.state = "dead";
                     this.respawnT.active = true;  
                     this.enemy.heal(this.health);
                 }
-            if (this.respawnT.active == false && this.dead == true){
-                    this.initialise();
-                    this.dead = false;
+            if (this.respawnT.active == false && this.state == "dead"){
+                    this.state = "idle";
+                    this.initialise();  
                 }  
             
         }
     }
-    let enemy1 = new enemy("1", vec2(200,20), 1.2, 1, 100, 5 ,"def")
-    let enemy2 = new enemy("2", vec2(700,20), 1, 1, 100, 5 ,"def")
-    let enemy3 = new enemy("3", vec2(1000,20), 0.9, 1, 100, 5 ,"def")
-    let enemy4 = new enemy("4", vec2(-100,20), 0.7, 1, 100, 5 ,"def")
-    let enemy5 = new enemy("5", vec2(1700,20), 2, 1, 200, 5 ,"def")
+    let enemy1 = new enemy("1", vec2(200,20), 1.2, 1, 100, 5)
+    let enemy2 = new enemy("2", vec2(700,20), 1, 1, 100, 5)
+    let enemy3 = new enemy("3", vec2(1000,20), 0.9, 1, 100, 5)
+    let enemy4 = new enemy("4", vec2(-100,20), 0.7, 1, 100, 5)
+    let enemy5 = new enemy("5", vec2(1700,20), 2, 1, 200, 5)
     
     enemy1.initialise();
     enemy2.initialise();
@@ -700,10 +809,8 @@ scene("main", () => {
 
         }*/
     };
- 
-    let beanPos = vec2(bean.pos.x, bean.pos.y - startOffset)
-    let maxJumps = 2;
     let beanAction = new beanaction(false);
+    let beanPos = vec2(bean.pos.x, bean.pos.y - startOffset)
 
     function damage(target, damage){
         if (inv.active == false && roll == false){
@@ -731,7 +838,7 @@ scene("main", () => {
             acc = 0;
             camAcc = 0;    
             run = false;
-            camPos(beanPos.x, camPos().y);
+            //camPos(beanPos.x, camPos().y);
             if (dash == true) {
                 dashChargeTimer = dashCharge;
                 dash = false;
@@ -771,173 +878,8 @@ scene("main", () => {
         shake(10);
         healthUI.color = rgb(255,0,0);
     });
-    onUpdate(() => {
-        //world update
-        gravity(1600);
-        hang = false;
-        aim = toWorld(mousePos())
-        rollTimer.update();
-        dashTimer.update();
-        slamTimer.update();
-        returnK.update();
-        inv.update();
-        enInv.update();
-        
-        enemy1.update();
-        enemy2.update();
-        enemy3.update();
-        enemy4.update();
-        enemy5.update();
-        
-        beanAction.dash(dash);
-        beanAction.roll(roll);
-        beanAction.slam(slam);
-        beanAction.hang(hang);
-        beanAction.hang(kick);
-        beanAction.throw(thrown);
-        if (run == true) {
-            beanAction.run(true);
-        }
-        else {
-            //Slow down until speed is 0
-            if (speed > 0) {
-                speed = (speed - friction);
-                beanAction.run(true);
-                if (bean.curAnim() == "idle"){
-                    bean.stop();
-                    bean.play("slide");
-                }
-            }
-            else {
-                speed = 0;
-                isAccel = false;
-                if (bean.isGrounded());
-                if (bean.isFalling() && bean.isGrounded == false) {
-                        bean.play("airIdle");
-                    };
-                beanAction.run(false);
-            }
-            if (camSpeed > 0) {
-                camSpeed = (camSpeed - camFriction);
-            }
-            else {
-                camSpeed = 0;
-                camPos(beanPos.x, camPos().y);
-            }
-        }
-        
-        groundCollide(isTouchingGrass);
-        if (!bean.isColliding(groundCollision)){isTouchingGrass = false}
-        
-        if (bean.curAnim() != "punch1" || bean.curAnim() != "punch2"){
-            isPunching = false;
-        }
-        //position updates
-        beanPos = vec2(bean.pos.x, bean.pos.y - startOffset);
-        camPos(camPos().x + (moveX * camSpeed) * dt() , bean.pos.y/4 + 300); //height() * 0.75 - startOffset);
-        camFriction = friction * (camAcc / acc);
-        
-        playerDamageBox.pos = vec2(bean.pos.x + (50 * moveX), bean.pos.y);
-        playerSlamBox.pos = vec2(bean.pos.x, bean.pos.y + 55);
-        playerKickBox.pos = vec2(bean.pos.x + (40 * moveX), bean.pos.y + 50);
-        if(ammo == 1){knife.pos = vec2(bean.pos.x , bean.pos.y)};
-        
-        if (bean.curAnim() != "punch1" || bean.curAnim() != "punch2"){
-            isPunching = false;
-        }
-             
-        //Refresh Animations
-        if (bean.curAnim() == null) {
-            if (isAccel) {
-                if (bean.isGrounded()) {
-                    if (run == true) {
-                        bean.play("run");
-                    }
-                    else {
-                        bean.play("slide");
-                    }
-                }
-                else {
-                    bean.play("moveFall");
-                }
-            }
-            else {
-                if (bean.isGrounded()) {
-                    bean.play("idle");
-                }
-                else {
-                    bean.play("airIdle");
-                }
-            }
-        }
-        //GroundedFunctions
-        if (bean.isGrounded()) {
-            jumps = 0;
-            if (slam == true) {
-                bean.stop();
-                speed = 0;
-                slam = false;
-                bean.play("slamLand");
-                slamTimer.active = true;
-                shake(8);
-            }
-            if (bean.curAnim() == "moveJump" || bean.curAnim() == "uppercut") {
-                bean.stop();
-            }
-        }
-        //OutofboundsReset
-        if (beanPos.y > 7000) {
-            console.log("Out Of Bounds");
-            bean.pos = vec2(width() * 0.5, height() * 0.75);
-            beanPos = vec2(bean.pos.x, bean.pos.y - startOffset);
-        }
-        if (knife.pos.y > 7000){   
-            knife.stop();
-            knife.play("static");
-            thrown = false;
-            landed = true;
-            returnKnife();
-        }
-        
-        //UI Update 
-        rollUI.width = 75 * rollTimer.time/0.5;
-        if (dashTimer.active == true){
-               dashUI.width = 450 * ((3 - dashTimer.time)/3);
-               dashUI.color = rgb(240, 197, 5);
-        }
-        else if (bean.curAnim() == "charge" || bean.curAnim() == "chargeEnd"){
-            dashUI.width = (430 * dashChargeTimer/dashCharge) + 20;
-            dashUI.color = rgb(245, 20, 20);
-        }
-        else{
-            dashUI.width = 450;
-            dashUI.color = rgb(3, 222, 255);  
-        }
-        if (slamTimer.active == true){
-           slamUI.height = 20 * ((2 - slamTimer.time)/2); 
-           slamUI.color = rgb(255, 89, 43);
-        }
-        else{
-            slamUI.height = 20;
-            slamUI.color = rgb(255, 255, 255);
-        }
-        if (inv.active == false){
-            healthUI.color = rgb(255,255,255);
-        }
-        if (returnK.active == true && landed == true){
-           returnKUI.width = 75 * (returnK.time/2); 
-        }
-        else {
-            returnKUI.width = 0;
-        }
-        debugText.text = bean.curAnim();//bean.curAnim();
-        debugText.pos = vec2(bean.pos.x, bean.pos.y - 90);
-        returnKUI.pos = vec2(bean.pos.x - 37.5, bean.pos.y - 70);
-        healthUI.text = "HEALTH: " + bean.hp(); 
-        readd(debugText);
-        readd(healthUI);
-    })
 
+    //bean.pos.y = -10000;
     onCollide("bean", "ground", (a, b, c) => {
         let d
         if (c == null) {
@@ -949,6 +891,7 @@ scene("main", () => {
         if (d.y == 0) { //stop the camera from moving without character by killing all acceleration 
             groundCollision = b
             isTouchingGrass = true;
+            groundCollide(isTouchingGrass);
         }
 
         if (d.x == -0) {
@@ -1242,16 +1185,192 @@ scene("main", () => {
             godmode = false;
         }
     });
-    
     onKeyPress("f", (c) => {
         fullscreen(!isFullscreen())
     });
 
+    onUpdate(() => {
+        //world update
+        gravity(1600);
+        aim = toWorld(mousePos())
+        rollTimer.update();
+        dashTimer.update();
+        slamTimer.update();
+        returnK.update();
+        inv.update();
+        enInv.update();
+        
+        enemy1.update();
+        enemy2.update();
+        enemy3.update();
+        enemy4.update();
+        enemy5.update();
+    
+        beanAction.dash(dash);
+        beanAction.roll(roll);
+        beanAction.slam(slam);
+        beanAction.hang(hang);
+        beanAction.hang(kick);
+        beanAction.throw(thrown);
+        
+        groundCollide(isTouchingGrass);
+        hang = false;
+        if (run == true) {
+            beanAction.run(true);
+        }
+        else {
+            //Slow down until speed is 0
+            if (speed <= 0){
+                speed = 0
+            }
+            if (speed > 0) {
+                speed = (speed - friction);
+                beanAction.run(true);
+                if (bean.curAnim() == "idle"){
+                    bean.stop();
+                    bean.play("slide");
+                }
+            }
+            else {
+                speed = 0;
+                isAccel = false;
+                if (bean.isGrounded());
+                if (bean.isFalling() && bean.isGrounded == false) {
+                        bean.play("airIdle");
+                };
+            }
+            if (camSpeed > 0) {
+                camSpeed = (camSpeed - camFriction);
+            }
+            else {
+                camSpeed = 0;
+            }
+        }
+        
+        if (!bean.isColliding(groundCollision)){isTouchingGrass = false}        
+        if (bean.curAnim() != "punch1" || bean.curAnim() != "punch2"){
+            isPunching = false;
+        }
+        
+        //position updates
+        beanPos = vec2(bean.pos.x, bean.pos.y - startOffset);
+        //camPos(camPos().x + (moveX * camSpeed) * dt() , bean.pos.y/4 + 324);
+        camPos(bean.pos.x, bean.pos.y/4 + 324)
+        camFriction = friction * (camAcc / acc);
+        
+        playerDamageBox.pos = vec2(bean.pos.x + (50 * moveX), bean.pos.y);
+        playerSlamBox.pos = vec2(bean.pos.x, bean.pos.y + 55);
+        playerKickBox.pos = vec2(bean.pos.x + (40 * moveX), bean.pos.y + 50);
+        if(ammo == 1){knife.pos = vec2(bean.pos.x , bean.pos.y)};
+        
+        //Refresh Animations
+        if (bean.curAnim() == null) {
+            if (isAccel) {
+                if (bean.isGrounded()) {
+                    if (run == true) {
+                        bean.play("run");
+                    }
+                    else {
+                        bean.play("slide");
+                    }
+                }
+                else {
+                    bean.play("moveFall");
+                }
+            }
+            else {
+                if (bean.isGrounded()) {
+                    bean.play("idle");
+                }
+                else {
+                    bean.play("airIdle");
+                }
+            }
+        }
+        //GroundedFunctions
+        if (bean.isGrounded()) {
+            jumps = 0;
+            if (slam == true) {
+                bean.stop();
+                speed = 0;
+                slam = false;
+                bean.play("slamLand");
+                slamTimer.active = true;
+                shake(8);
+            }
+            if (bean.curAnim() == "moveJump" || bean.curAnim() == "uppercut") {
+                bean.stop();
+            }
+        }
+        //OutofboundsReset
+        if (beanPos.y > 7000) {
+            console.log("Out Of Bounds");
+            bean.pos = vec2(width() * 0.5, height() * 0.75);
+            beanPos = vec2(bean.pos.x, bean.pos.y - startOffset);
+        }
+        if (knife.pos.y > 7000){   
+            knife.stop();
+            knife.play("static");
+            thrown = false;
+            landed = true;
+            returnKnife();
+        }
+        
+        //UI Update 
+        roofs.move(-moveX * speed/5,0)
+        roofs.pos.y = (-camPos().y + height())/2 + ((height()*0.5) - height()*0.5/2)
+        roofs2.move(-moveX * speed/2,0)
+        roofs2.pos.y = -camPos().y + height()*1.5/0.8 + (height() - height()/0.8) + 324 
+        frontland.move(-moveX * speed/20, 0);
+        frontland.pos.y = (-camPos().y + height())/8 + ((height()*0.5) - height()*0.5/8)
+        temple.move(-moveX * speed/40, 0);
+        temple.pos.y = (-camPos().y + height())/12 + ((height()*0.5) - height()*0.5/12)
+        ocean.move(-moveX * speed/100, 0);
+        mountains.move(-moveX * speed/100, 0);
+        
+        rollUI.width = 75 * rollTimer.time/0.5;
+        if (dashTimer.active == true){
+               dashUI.width = 450 * ((3 - dashTimer.time)/3);
+               dashUI.color = rgb(240, 197, 5);
+        }
+        else if (bean.curAnim() == "charge" || bean.curAnim() == "chargeEnd"){
+            dashUI.width = (430 * dashChargeTimer/dashCharge) + 20;
+            dashUI.color = rgb(245, 20, 20);
+        }
+        else{
+            dashUI.width = 450;
+            dashUI.color = rgb(3, 222, 255);  
+        }
+        if (slamTimer.active == true){
+           slamUI.height = 20 * ((2 - slamTimer.time)/2); 
+           slamUI.color = rgb(255, 89, 43);
+        }
+        else{
+            slamUI.height = 20;
+            slamUI.color = rgb(255, 255, 255);
+        }
+        if (inv.active == false){
+            healthUI.color = rgb(255,255,255);
+        }
+        if (returnK.active == true && landed == true){
+           returnKUI.width = 75 * (returnK.time/2); 
+        }
+        else {
+            returnKUI.width = 0;
+        }
+        debugText.text = speed + " " + moveX + " " + dash //bean.curAnim();
+        debugText.pos = vec2(bean.pos.x, bean.pos.y - 90);
+        returnKUI.pos = vec2(bean.pos.x - 37.5, bean.pos.y - 70);
+        healthUI.text = "HEALTH: " + bean.hp(); 
+        readd(debugText);
+        readd(healthUI);
+    })
+
     add([
         origin("top"),
-        rect(4000, 300),
+        rect(40000, 300),
         pos(width() * 0.5, height() * 0.9),
-        area({ width: 4000, height: 300 }),
+        area({ width: 40000, height: 300 }),
         solid(),
         color(60, 60, 60),
         "ground"
@@ -1317,6 +1436,7 @@ scene("main", () => {
     ])
     add([
         origin("top"),
+        z(4),
         rect(40, 800),
         pos(width() * 0.5 + 1300, height() * 0.9 - 865),
         area({ width: 40, height: 800 }),
